@@ -91,6 +91,11 @@ async def ensure_indexes() -> None:
     await db.notifications.create_index([("recipient_user_id", 1), ("read", 1)])
     await db.notifications.create_index([("recipient_user_id", 1), ("dedup_key", 1)], unique=False, sparse=True)
     await db.notification_prefs.create_index("user_id", unique=True)
+    # Phase 2A — Payroll foundation
+    await db.salary_components.create_index([("company_id", 1), ("code", 1)], unique=True)
+    await db.salary_structures.create_index([("company_id", 1)])
+    await db.employee_salaries.create_index([("company_id", 1), ("employee_id", 1), ("is_current", 1)])
+    await db.employee_salaries.create_index([("employee_id", 1), ("effective_from", -1)])
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
@@ -502,3 +507,9 @@ async def seed_demo_data() -> None:
         s_inserted += 1
     if s_inserted:
         log.info("Seeded %d default shifts for company=%s", s_inserted, company_id)
+
+    # 12. Seed default salary components + structures for ACME (idempotent)
+    from payroll_seed import seed_payroll_components
+    c_ins, st_ins = await seed_payroll_components(db, company_id)
+    if c_ins or st_ins:
+        log.info("Seeded %d salary components + %d structures for company=%s", c_ins, st_ins, company_id)

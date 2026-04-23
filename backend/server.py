@@ -40,6 +40,11 @@ from routers.attendance_admin_routes import (
     reg_router, ot_router, ts_router,
 )
 from routers.notifications_routes import router as notifications_router
+from routers.payroll_routes import (
+    components_router as salary_components_router,
+    structures_router as salary_structures_router,
+    comp_router as compensation_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -101,6 +106,9 @@ app.include_router(reg_router)
 app.include_router(ot_router)
 app.include_router(ts_router)
 app.include_router(notifications_router)
+app.include_router(salary_components_router)
+app.include_router(salary_structures_router)
+app.include_router(compensation_router)
 
 app.add_middleware(
     CORSMiddleware,
