@@ -7,6 +7,7 @@ product/service requests, reseller+company admin creation, and leak checks
 """
 import os
 import uuid
+from datetime import date, timedelta
 import pytest
 import requests
 
@@ -33,8 +34,50 @@ def _login(email, password):
     return data["access_token"], data["user"]
 
 
+def _future_weekday(offset_days):
+    """Return an ISO date that's at least `offset_days` away and a Mon-Sat."""
+    d = date.today() + timedelta(days=offset_days)
+    while d.weekday() == 6:  # skip Sunday
+        d += timedelta(days=1)
+    return d.isoformat()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _reset_test_leaves_hrms():
+    """Cancel TEST-prefixed leaves for the demo employee so the suite doesn't exhaust CL/SL balance."""
+    emp_tok, _ = _login(*CREDS["employee"])
+    r = requests.get(f"{API}/leave", headers=_h(emp_tok), timeout=15)
+    if r.status_code == 200:
+        for lv in r.json():
+            reason = (lv.get("reason") or "")
+            if (reason.startswith("TEST ") or reason.startswith("TEST_")) and lv.get("status") in ("pending", "approved"):
+                requests.post(f"{API}/leave/cancel/{lv['id']}", headers=_h(emp_tok), timeout=15)
+    yield
+
+
 def _h(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+# Leave type cache (v2 API: POST /api/leave requires leave_type_id UUID, not string)
+_LEAVE_TYPE_CACHE = {}
+
+def _resolve_leave_type_id(tok, logical):
+    """Translate legacy leave_type string (casual/sick/earned/unpaid) -> leave_type_id UUID."""
+    if logical in _LEAVE_TYPE_CACHE:
+        return _LEAVE_TYPE_CACHE[logical]
+    mapping = {"casual": "CL", "sick": "SL", "earned": "EL", "unpaid": "LOP"}
+    code = mapping.get(logical.lower(), logical.upper())
+    r = requests.get(f"{API}/leave-types", headers=_h(tok), timeout=15)
+    assert r.status_code == 200
+    lt = next(x for x in r.json() if x["code"] == code)
+    _LEAVE_TYPE_CACHE[logical] = lt["id"]
+    return lt["id"]
+
+
+def _leave_payload(tok, leave_type, start, end, reason, **extra):
+    return {"leave_type_id": _resolve_leave_type_id(tok, leave_type),
+            "start_date": start, "end_date": end, "reason": reason, **extra}
 
 
 # ========== Auth ==========
@@ -172,11 +215,10 @@ def test_employees_filter_search_aisha():
 def test_leave_approval_end_to_end():
     emp_tok, emp_user = _login(*CREDS["employee"])
     # Create leave
-    # Use 'earned' leave type which has no seeded workflow => fallback manager-walk-up (mgr + HR)
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "earned", "start_date": "2026-02-01",
-        "end_date": "2026-02-02", "reason": "TEST_E2E personal work"
-    }, timeout=15)
+    # Use 'earned' leave type (EL) which has no seeded workflow => fallback manager-walk-up (mgr + HR)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "earned", _future_weekday(30), _future_weekday(31), "TEST_E2E personal work",
+    ), timeout=15)
     assert r.status_code == 200, r.text
     leave = r.json()
     approval_id = leave["approval_request_id"]
@@ -219,10 +261,9 @@ def test_leave_approval_end_to_end():
 
 def test_leave_rejection_flow():
     emp_tok, _ = _login(*CREDS["employee"])
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "sick", "start_date": "2026-03-01",
-        "end_date": "2026-03-01", "reason": "TEST_REJ sick day"
-    }, timeout=15)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "sick", _future_weekday(40), _future_weekday(40), "TEST_REJ sick day",
+    ), timeout=15)
     assert r.status_code == 200
     leave = r.json()
     approval_id = leave["approval_request_id"]
@@ -244,10 +285,9 @@ def test_leave_rejection_flow():
 def test_approvals_not_your_turn():
     """HR cannot approve until manager does."""
     emp_tok, _ = _login(*CREDS["employee"])
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "casual", "start_date": "2026-04-01",
-        "end_date": "2026-04-01", "reason": "TEST_NYT"
-    }, timeout=15)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "casual", _future_weekday(50), _future_weekday(50), "TEST_NYT",
+    ), timeout=15)
     approval_id = r.json()["approval_request_id"]
     hr_tok, _ = _login(*CREDS["hr"])
     r = requests.post(f"{API}/approvals/{approval_id}/decide", headers=_h(hr_tok),

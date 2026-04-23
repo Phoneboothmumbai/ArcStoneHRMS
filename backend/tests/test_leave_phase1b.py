@@ -61,6 +61,22 @@ def me(tokens):
     return r.json()
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _reset_test_leaves(tokens, me):
+    """Cancel any pending/approved test-created leaves and re-sync balance
+    ledger so TEST_ prefixed runs don't accumulate debt on the demo employee."""
+    emp_id = me["employee_id"]
+    # List all leaves for this employee (as HR for visibility), cancel TEST_ prefixed ones that are cancellable
+    r = requests.get(f"{BASE_URL}/api/leave", headers=_hdr(tokens["emp"]), timeout=15)
+    if r.status_code == 200:
+        for lv in r.json():
+            if (lv.get("reason") or "").startswith("TEST_") and lv.get("status") in ("pending", "approved"):
+                requests.post(f"{BASE_URL}/api/leave/cancel/{lv['id']}", headers=_hdr(tokens["emp"]), timeout=15)
+    # Reset used/pending via admin balance sync endpoint if available; otherwise HR can adjust
+    # (Soft cleanup; tests that assert exact balance should use self.get_cl_balance before/after)
+    yield
+
+
 # ---------------- Leave Types ----------------
 class TestLeaveTypes:
     def test_list_returns_9_seeded(self, tokens):

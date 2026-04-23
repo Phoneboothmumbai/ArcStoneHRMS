@@ -39,9 +39,16 @@ async def create_leave_type(
     cid = user.get("company_id")
     if not cid:
         raise HTTPException(400, "Company scope required")
-    if await db.leave_types.find_one({"company_id": cid, "code": body.code.upper()}):
+    code_up = body.code.upper()
+    if await db.leave_types.find_one({"company_id": cid, "code": code_up, "is_active": True}):
         raise HTTPException(400, "Leave type with this code already exists")
-    doc = LeaveType(company_id=cid, **{**body.model_dump(), "code": body.code.upper()}).model_dump()
+    # Reactivate soft-deleted row if present (unique index is on (company_id, code), active flag not included).
+    inactive = await db.leave_types.find_one({"company_id": cid, "code": code_up, "is_active": False})
+    if inactive:
+        upd = {**body.model_dump(), "code": code_up, "is_active": True, "updated_at": now_iso()}
+        await db.leave_types.update_one({"id": inactive["id"]}, {"$set": upd})
+        return await db.leave_types.find_one({"id": inactive["id"]}, {"_id": 0})
+    doc = LeaveType(company_id=cid, **{**body.model_dump(), "code": code_up}).model_dump()
     await db.leave_types.insert_one(doc)
     doc.pop("_id", None)
     return doc

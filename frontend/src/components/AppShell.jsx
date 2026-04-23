@@ -2,10 +2,11 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
-  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen,
+  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen, CurrencyInr,
 } from "@phosphor-icons/react";
 import NotificationsBell from "./NotificationsBell";
 import { useAuth } from "../context/AuthContext";
+import { useModules } from "../context/ModulesContext";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 
@@ -24,14 +25,15 @@ const NAV_BY_ROLE = {
     { to: "/app/hr", label: "Overview", icon: HouseLine },
     { to: "/app/employees", label: "Employees", icon: UsersThree },
     { to: "/app/org-tree", label: "Organization", icon: TreeStructure },
-    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus },
-    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus },
+    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus, module: "onboarding" },
+    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus, module: "onboarding" },
     { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
     { to: "/app/workflows", label: "Workflows", icon: FlowArrow },
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
     { to: "/app/leave-admin", label: "Leave Admin", icon: CalendarCheck },
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
     { to: "/app/attendance-admin", label: "Attendance Admin", icon: ClockClockwise },
+    { to: "/app/payroll", label: "Payroll", icon: CurrencyInr, module: "payroll" },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
     { to: "/app/billing", label: "Billing & Modules", icon: Receipt },
   ],
@@ -55,9 +57,14 @@ const NAV_BY_ROLE = {
 
 export default function AppShell({ children, title }) {
   const { user, logout } = useAuth();
+  const { active: activeModules } = useModules();
   const navigate = useNavigate();
   if (!user) return null;
-  const nav = NAV_BY_ROLE[user.role] || NAV_BY_ROLE.employee;
+  const rawNav = NAV_BY_ROLE[user.role] || NAV_BY_ROLE.employee;
+  // Filter out nav entries whose module isn't active (super_admin & reseller bypass — no module field on their nav)
+  const nav = user.role === "super_admin"
+    ? rawNav
+    : rawNav.filter(item => !item.module || activeModules.includes(item.module) || activeModules.includes("*"));
   const initials = (user.name || user.email || "U").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
   return (

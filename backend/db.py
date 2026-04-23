@@ -392,7 +392,7 @@ async def seed_demo_data() -> None:
     await _ensure_wf("Casual leave ≤3d — manager only", {
         "request_type": "leave",
         "match_item_category": None,
-        "match_leave_type": "casual",
+        "match_leave_type": "cl",
         "match_min_cost": None, "match_max_cost": None,
         "match_min_days": None, "match_max_days": 3,
         "match_branch_id": None, "priority": 100, "is_active": True,
@@ -402,7 +402,7 @@ async def seed_demo_data() -> None:
     await _ensure_wf("Unpaid leave — 3 levels", {
         "request_type": "leave",
         "match_item_category": None,
-        "match_leave_type": "unpaid",
+        "match_leave_type": "lop",
         "match_min_cost": None, "match_max_cost": None,
         "match_min_days": None, "match_max_days": None,
         "match_branch_id": None, "priority": 100, "is_active": True,
@@ -436,6 +436,7 @@ async def seed_demo_data() -> None:
     await _ensure_mod("base_hrms", status="active", price_source="included")
     await _ensure_mod("procurement", status="active")
     await _ensure_mod("onboarding", status="active")
+    await _ensure_mod("payroll", status="active")
     log.info("Module entitlements seeded for company=%s", company_id)
 
     # 8. Seed default onboarding template for ACME (idempotent)

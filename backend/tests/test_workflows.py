@@ -11,6 +11,7 @@ Covers the configurable approval workflow feature added on top of the MVP:
 """
 import os
 import uuid
+from datetime import date, timedelta
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://people-partner-cloud.preview.emergentagent.com").rstrip("/")
@@ -32,6 +33,52 @@ def _login(email, password):
 
 def _h(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+# Leave type cache (v2 API: POST /api/leave requires leave_type_id UUID, not string)
+_LEAVE_TYPE_CACHE = {}
+
+def _resolve_leave_type_id(tok, logical):
+    """Translate legacy leave_type string (casual/sick/earned/unpaid) -> leave_type_id UUID."""
+    if logical in _LEAVE_TYPE_CACHE:
+        return _LEAVE_TYPE_CACHE[logical]
+    mapping = {"casual": "CL", "sick": "SL", "earned": "EL", "unpaid": "LOP"}
+    code = mapping.get(logical.lower(), logical.upper())
+    r = requests.get(f"{API}/leave-types", headers=_h(tok), timeout=15)
+    assert r.status_code == 200
+    lt = next(x for x in r.json() if x["code"] == code)
+    _LEAVE_TYPE_CACHE[logical] = lt["id"]
+    return lt["id"]
+
+
+def _leave_payload(tok, leave_type, start, end, reason, **extra):
+    """Build a POST /api/leave v2 payload from legacy (string) leave_type."""
+    return {"leave_type_id": _resolve_leave_type_id(tok, leave_type),
+            "start_date": start, "end_date": end, "reason": reason, **extra}
+
+
+def _future_weekday(offset_days):
+    """Return an ISO date that's at least `offset_days` away and a Mon-Sat."""
+    d = date.today() + timedelta(days=offset_days)
+    while d.weekday() == 6:
+        d += timedelta(days=1)
+    return d.isoformat()
+
+
+# Module-level autouse cleanup — cancel any TEST-prefixed pending/approved leaves from prior runs
+# to keep the demo employee's CL/SL/EL balance healthy across the regression suite.
+import pytest
+
+@pytest.fixture(scope="module", autouse=True)
+def _reset_test_leaves_workflows():
+    emp_tok, _ = _login(*CREDS["employee"])
+    r = requests.get(f"{API}/leave", headers=_h(emp_tok), timeout=15)
+    if r.status_code == 200:
+        for lv in r.json():
+            reason = (lv.get("reason") or "")
+            if (reason.startswith("TEST ") or reason.startswith("TEST_")) and lv.get("status") in ("pending", "approved"):
+                requests.post(f"{API}/leave/cancel/{lv['id']}", headers=_h(emp_tok), timeout=15)
+    yield
 
 
 def _assert_no_leak(obj):
@@ -221,10 +268,9 @@ def test_tenant_isolation_hr_only_sees_own_company_workflows():
 # =========================================================================
 def test_matching_engine_casual_leave_manager_only():
     emp_tok, _ = _login(*CREDS["employee"])
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "casual", "start_date": "2026-03-01",
-        "end_date": "2026-03-02", "reason": "TEST casual 2d",
-    }, timeout=15)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "casual", _future_weekday(60), _future_weekday(61), "TEST casual 2d",
+    ), timeout=15)
     assert r.status_code == 200, r.text
     approval_id = r.json()["approval_request_id"]
 
@@ -239,10 +285,9 @@ def test_matching_engine_casual_leave_manager_only():
 
 def test_matching_engine_unpaid_leave_3_levels():
     emp_tok, _ = _login(*CREDS["employee"])
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "unpaid", "start_date": "2026-04-01",
-        "end_date": "2026-04-10", "reason": "TEST unpaid",
-    }, timeout=15)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "unpaid", _future_weekday(70), _future_weekday(80), "TEST unpaid",
+    ), timeout=15)
     assert r.status_code == 200
     approval_id = r.json()["approval_request_id"]
 
@@ -343,10 +388,9 @@ def test_preview_workflow_no_match_fallback():
 # =========================================================================
 def test_casual_leave_single_step_full_decision_flow():
     emp_tok, _ = _login(*CREDS["employee"])
-    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "casual", "start_date": "2026-05-01",
-        "end_date": "2026-05-02", "reason": "TEST 1step casual",
-    }, timeout=15)
+    r = requests.post(f"{API}/leave", headers=_h(emp_tok), json=_leave_payload(
+        emp_tok, "casual", _future_weekday(90), _future_weekday(91), "TEST 1step casual",
+    ), timeout=15)
     assert r.status_code == 200
     leave = r.json()
     approval_id = leave["approval_request_id"]

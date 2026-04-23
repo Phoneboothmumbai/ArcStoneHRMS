@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from fastapi import Depends as _Depends
+
 from auth import get_current_user, require_roles
 from db import get_db
 from models import now_iso, uid
@@ -11,10 +13,14 @@ from models_payroll import (
     SalaryComponent, SalaryComponentCreate,
     SalaryStructure, SalaryStructureCreate, StructureLine,
 )
+from tenant import requires_module
 
-components_router = APIRouter(prefix="/api/salary-components", tags=["salary-components"])
-structures_router = APIRouter(prefix="/api/salary-structures", tags=["salary-structures"])
-comp_router = APIRouter(prefix="/api/compensation", tags=["compensation"])
+# All payroll endpoints are gated behind the "payroll" module (402 Payment Required if not entitled).
+_payroll_gate = [_Depends(requires_module("payroll"))]
+
+components_router = APIRouter(prefix="/api/salary-components", tags=["salary-components"], dependencies=_payroll_gate)
+structures_router = APIRouter(prefix="/api/salary-structures", tags=["salary-structures"], dependencies=_payroll_gate)
+comp_router = APIRouter(prefix="/api/compensation", tags=["compensation"], dependencies=_payroll_gate)
 
 ADMIN = ("super_admin", "company_admin")
 # Payroll data is sensitive — restrict view
