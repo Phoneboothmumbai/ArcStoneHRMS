@@ -1,0 +1,135 @@
+{
+  "project_context": {
+    "domain": "Enterprise HRMS SaaS with Reseller Layer",
+    "theme": "light",
+    "archetype": "4 (Swiss & High-Contrast)",
+    "vibe": "Professional, Trustworthy, Data-dense, Crisp, Authoritative. Inspired by Linear, Retool, Rippling."
+  },
+  "colors": {
+    "background": "#F4F4F5",
+    "surface": "#FFFFFF",
+    "text_primary": "#09090B",
+    "text_secondary": "#52525B",
+    "border": "#E4E4E7",
+    "primary": "#09090B",
+    "primary_hover": "#27272A",
+    "accent": "#2563EB",
+    "accent_hover": "#1D4ED8",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444",
+    "info": "#3B82F6",
+    "sidebar_bg": "#FAFAFA",
+    "sidebar_text": "#09090B",
+    "sidebar_hover": "#F4F4F5",
+    "tailwind_mapping": {
+      "background": "bg-zinc-100",
+      "surface": "bg-white",
+      "text_primary": "text-zinc-950",
+      "text_secondary": "text-zinc-600",
+      "border": "border-zinc-200",
+      "primary": "bg-zinc-950",
+      "sidebar_bg": "bg-zinc-50"
+    }
+  },
+  "typography": {
+    "heading_font": "Chivo",
+    "body_font": "IBM Plex Sans",
+    "import_url": "https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap",
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none font-bold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight leading-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight leading-snug font-semibold",
+      "h4": "text-lg sm:text-xl tracking-tight font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm",
+      "tiny_label": "text-xs tracking-[0.2em] uppercase font-medium"
+    }
+  },
+  "layout_spacing": {
+    "marketing_page": {
+      "section_padding": "py-24 sm:py-32",
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+      "gap": "gap-8 lg:gap-16"
+    },
+    "dashboard": {
+      "shell_layout": "grid-cols-[260px_1fr] h-screen overflow-hidden",
+      "content_padding": "p-6 sm:p-8",
+      "widget_gap": "gap-4 sm:gap-6",
+      "grid_pattern": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4"
+    },
+    "borders_and_radius": {
+      "radius_base": "rounded-md",
+      "radius_large": "rounded-lg",
+      "radius_small": "rounded-sm",
+      "border_width": "border",
+      "shadow_subtle": "shadow-sm",
+      "shadow_hover": "shadow-md"
+    }
+  },
+  "component_guidelines": {
+    "buttons": "High contrast. Primary: Solid black (bg-zinc-950) with white text. Secondary: Outline with border-zinc-200. Radius: rounded-md. Font: IBM Plex Sans medium.",
+    "cards_and_widgets": "Flat surfaces. Background: White. Border: 1px solid #E4E4E7 (zinc-200). Shadow: shadow-sm. Padding: p-6. Radius: rounded-lg. No thick shadows.",
+    "data_tables": "Dense layout. Header: text-xs uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200. Rows: text-sm border-b border-zinc-100 hover:bg-zinc-50 transition-colors. Sticky headers for large datasets.",
+    "hierarchy_tree": "Use subtle vertical/horizontal borders (border-l border-zinc-300) to connect nodes. Nodes should be small compact cards with avatar, name (font-medium text-sm), and role (text-xs text-zinc-500).",
+    "forms": "Inputs must have rounded-md, border-zinc-300, focus:ring-2 focus:ring-zinc-950. Heavily customized Shadcn Form components to be sharp and dense.",
+    "marketing_hero": "Asymmetric layout. Left: Heavy Chivo typography, massive H1. Right: Architectural abstract or clean dashboard mockup. Subtle grid background pattern.",
+    "navigation": "Dashboard: Left fixed sidebar (bg-zinc-50). Marketing: Sticky top nav with Crystal Glassmorphism (bg-white/80 backdrop-blur-xl border-b border-zinc-200/50)."
+  },
+  "interactions_and_motion": {
+    "hover_states": "Crisp and immediate. Button hovers transition background color slightly. Row hovers on tables should be very subtle off-white.",
+    "transitions": "transition-all duration-200 ease-in-out",
+    "focus_states": "Accessibility first: focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:outline-none focus-visible:ring-offset-2"
+  },
+  "icons": {
+    "library": "phosphor-icons/react",
+    "install_command": "yarn add @phosphor-icons/react",
+    "style": "Regular weight for dashboard dense areas, Duotone for marketing highlights."
+  },
+  "media_assets": {
+    "hero_marketing": [
+      {
+        "url": "https://images.unsplash.com/photo-1610741804272-059e1d3c5dba?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMG1vZGVybiUyMG9mZmljZSUyMGFyY2hpdGVjdHVyZXxlbnwwfHx8fDE3NzY5Mzg5MDZ8MA&ixlib=rb-4.1.0&q=85",
+        "category": "hero_background",
+        "description": "Abstract modern black glass building architecture. Use as a subtle right-side visual or hero background."
+      }
+    ],
+    "team_and_culture": [
+      {
+        "url": "https://images.pexels.com/photos/7108207/pexels-photo-7108207.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "marketing_team",
+        "description": "Diverse corporate team in modern office. Good for 'Reseller' or 'About Us' section."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1758518731468-98e90ffd7430?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwzfHxkaXZlcnNlJTIwY29ycG9yYXRlJTIwdGVhbSUyMG1vZGVybiUyMG9mZmljZXxlbnwwfHx8fDE3NzY5Mzg5MDZ8MA&ixlib=rb-4.1.0&q=85",
+        "category": "marketing_team_secondary",
+        "description": "Four professionals standing together."
+      }
+    ],
+    "sponsor_logos": [
+      {
+        "url": "https://images.pexels.com/photos/9973170/pexels-photo-9973170.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "partner_logo",
+        "description": "Coca-cola logo for partner section."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1764344815160-0e2afc6939a0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwyfHxjb21wYW55JTIwbG9nbyUyMHdoaXRlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzY5MjQ2NTN8MA&ixlib=rb-4.1.0&q=85",
+        "category": "partner_logo",
+        "description": "Subway logo."
+      }
+    ],
+    "placeholders": "DO NOT USE ANY PLACEHOLDER TEXT OR IMAGES. USE THE URLs PROVIDED ABOVE."
+  },
+  "testing": {
+    "data_testid_rule": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Load 'Chivo' and 'IBM Plex Sans' fonts from Google Fonts.",
+    "Implement pure HTML/Tailwind for marketing layout (use Grid, generous padding).",
+    "Use highly customized Shadcn components for Dashboard widgets and data dense areas. Reduce border radii and shadows to match the 'Swiss High-Contrast' aesthetic.",
+    "Ensure the dashboard uses a max of 2 main colors (zinc-950 and white) with subtle border contrast. Accent color should only be used for active states.",
+    "Build the Multi-level Approval Workflow and Organization Hierarchy Tree with clear structured divs and connecting SVG lines or left borders.",
+    "Enforce data-testid on every clickable or critical display element.",
+    "Strictly follow the color mappings provided."
+  ]
+}
