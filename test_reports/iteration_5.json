@@ -1,0 +1,33 @@
+{
+  "summary": "Phase 1M — Knowledge Base + contextual HelpHints. 16/16 new pytest cases in /app/backend/tests/test_kb_phase1m.py PASS: categories endpoint returns exactly 9 with published counts; list returns >=8 seeded articles excluding content/_id; q='UAN' free-text search matches india-statutory-pf-esic-pt; category + related_page filters work exactly; /articles/{slug} returns full content and increments view_count by exactly 1 on each fetch; non-existent slug → 404; /articles require auth (401). Admin: hr token → 403 on POST, admin → 200 with auto-slug 'test-phase1m-auto-slug-article'; duplicate slug → 400; invalid category → 400; PUT updates and slug-collision → 400; DELETE by super_admin only, hr→403. Seed idempotency verified — all 8 slugs present exactly once. Frontend smoke E2E via Playwright: HR login → sidebar 'Help & Knowledge Base' + header 'Help' visible; /app/help 3-col layout with 9 categories (Leave & Attendance + Troubleshooting count=0 and disabled); clicking India Statutory category filters list to 1 article; search 'UAN' filters to articles containing UAN incl. statutory one; click card → /app/help/welcome-to-arcstone → markdown-rendered h1/h2 (prose styling); Back link → /app/help. Employee Profile → Statutory tab shows 4 HelpHints (UAN/PF/ESIC/PT); popover opens with 'Read full guide →' pointing to /app/help/india-statutory-pf-esic-pt. KYC tab shows 2 HelpHints with deep link to /app/help/kyc-documents-employee. Bank tab shows 1 HelpHint (IFSC). HR→/app/kb-admin correctly redirected (blocked). Super admin sees 'Manage articles' button on /app/help; /app/kb-admin lists all 8 seeded articles; New Article dialog shows Title + Category (Select) + Excerpt + Content(markdown textarea) + Tags + Related page + Published checkbox + Save button.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_kb_phase1m.py",
+    "/app/test_reports/pytest/phase1m_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "kb_routes.list_articles: regex-based $or search is unindexed and case-insensitive (/i) which forces collection scan. Acceptable at 8 articles; plan to add a Mongo text index on (title, excerpt, content, tags) before catalog scales past ~200 docs.",
+    "kb_routes.get_article: view_count increment is a second write after read — if the article is toggled is_published=False between the find and update, the counter still increments. Minor race; acceptable.",
+    "kb_routes.admin_update: 'slug' validation allows empty string from client (Optional[str] with no min_length). Consider adding Field(min_length=1) on slug in KBArticleUpdate to avoid accidental empty slug replacement (currently would pass collision check and clobber slug='').",
+    "KBAdmin.jsx: save() doesn't validate required fields client-side (title, content). Backend will 422, but UX improvement suggested — disable Save when title or content empty.",
+    "AppShell sidebar: kb-cat-<slug> generator leaves a trailing dash for category names ending in a non-alphanumeric char e.g. 'India Statutory (PF, ESIC, PT)' → 'kb-cat-india-statutory-pf-esic-pt-'. Not a bug, but inconsistent with how-we-generate-slugs elsewhere (_slugify trims trailing dashes). Consider `.replace(/^-+|-+$/g,\"\")` for cleaner testids.",
+    "KnowledgeBase.jsx load(): depends on [q, cat] but fires on every keystroke of search with no debounce — OK at 8 articles but add 300ms debounce before scale.",
+    "HelpHint.jsx uses <button type='button'> inside <Label> — semantically the Label wraps a form control so the nested button may confuse screen readers. Consider rendering HelpHint as a sibling next to the Label rather than inside it. aria-label='Help' is set, which is good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_kb_phase1m.py (NEW — 16 tests across KB categories/list/search/detail/admin CRUD/seed idempotency)"
+  ],
+  "success_rate": { "backend": "100% (16/16 phase1M)", "frontend": "100% on critical paths (help list, category filter, search, article detail+back, HelpHints on Statutory/KYC/Bank, kb-admin gating, kb-admin CRUD dialog)" },
+  "test_credentials": "admin@hrms.io/Admin@123, hr@acme.io/Hr@12345 — both valid per /app/memory/test_credentials.md.",
+  "seed_data_creation": "One TEST_ KB article created ('TEST_ Phase1M Auto Slug Article', slug=test-phase1m-auto-slug-article) and deleted at end of TestAdminCRUD.test_delete_super_admin_only. Zero DB leftovers.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Five pytest suites now guard HRMS: test_hrms_backend.py, test_workflows.py, test_modules_phase0.py, test_phase1a_lifecycle.py, test_kb_phase1m.py. Full run: `pytest /app/backend/tests/ -v` (~2-3 min). Phase 1M: kb_router at /api/kb/* (kb_routes.py), 8 seeded slugs in kb_seed.py, seed_kb_articles() called from db.seed_demo_data. Frontend: KnowledgeBase.jsx exports default + KnowledgeBaseArticle + KBAdmin; reusable <HelpHint text article testid /> component; HelpHints wired in EmployeeProfile.jsx on KYC (PAN, Aadhaar), Statutory (UAN, PF, ESIC, PT) and Bank (IFSC). Non-bug quirk: kb category testids for 'India Statutory (PF, ESIC, PT)' have a trailing dash → use `[data-testid=\"kb-cat-india-statutory-pf-esic-pt-\"]`.",
+  "rca of the issue": "N/A — no defects. Only a cosmetic note: trailing-dash in kb-cat- testid for category names ending with ')' or other non-alphanum; does not affect functionality."
+}

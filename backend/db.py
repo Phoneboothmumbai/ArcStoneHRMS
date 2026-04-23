@@ -68,6 +68,10 @@ async def ensure_indexes() -> None:
     await db.onboardings.create_index("employee_id")
     await db.offboardings.create_index([("company_id", 1), ("status", 1)])
     await db.offboardings.create_index("employee_id")
+    # Phase 1M — Knowledge Base
+    await db.kb_articles.create_index("slug", unique=True)
+    await db.kb_articles.create_index("category")
+    await db.kb_articles.create_index("related_page")
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
@@ -437,3 +441,9 @@ async def seed_demo_data() -> None:
         ).model_dump()
         await db.onboarding_templates.insert_one(tpl)
         log.info("Default onboarding template seeded for company=%s", company_id)
+
+    # 9. Seed KB articles (platform-wide, idempotent)
+    from kb_seed import seed_kb_articles
+    inserted = await seed_kb_articles(db)
+    if inserted:
+        log.info("Seeded %d knowledge base articles", inserted)

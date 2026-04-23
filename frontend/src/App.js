@@ -24,6 +24,7 @@ import BillingAndModules from "./pages/BillingAndModules";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import Onboarding, { OnboardingDetail } from "./pages/Onboarding";
 import Offboarding, { OffboardingDetail } from "./pages/Offboarding";
+import KnowledgeBase, { KnowledgeBaseArticle, KBAdmin } from "./pages/KnowledgeBase";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -60,6 +61,9 @@ function App() {
           <Route path="/app/onboarding/:id" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><OnboardingDetail /></ProtectedRoute>} />
           <Route path="/app/offboarding" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><Offboarding /></ProtectedRoute>} />
           <Route path="/app/offboarding/:id" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><OffboardingDetail /></ProtectedRoute>} />
+          <Route path="/app/help" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
+          <Route path="/app/help/:slug" element={<ProtectedRoute><KnowledgeBaseArticle /></ProtectedRoute>} />
+          <Route path="/app/kb-admin" element={<ProtectedRoute roles={["super_admin"]}><KBAdmin /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

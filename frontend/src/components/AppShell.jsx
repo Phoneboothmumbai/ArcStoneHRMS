@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
-  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle,
+  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen,
 } from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
@@ -90,6 +90,20 @@ export default function AppShell({ children, title }) {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          <div className="pt-3 mt-3 border-t border-zinc-100">
+            <NavLink
+              to="/app/help"
+              data-testid="nav-help"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  isActive ? "bg-zinc-950 text-white" : "text-zinc-700 hover:bg-zinc-100"
+                }`
+              }
+            >
+              <BookOpen size={18} weight="regular" />
+              <span>Help & Knowledge Base</span>
+            </NavLink>
+          </div>
         </nav>
         <div className="px-3 py-3 border-t border-zinc-200">
           <div className="flex items-center gap-3 px-2 py-2">
@@ -122,6 +136,14 @@ export default function AppShell({ children, title }) {
               </h1>
             </div>
             <div className="flex items-center gap-3">
+              <NavLink
+                to="/app/help"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-950"
+                data-testid="header-help-link"
+              >
+                <Question size={14} weight="bold"/>
+                Help
+              </NavLink>
               <div className="tiny-label">{user.email}</div>
             </div>
           </div>

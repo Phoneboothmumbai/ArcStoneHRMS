@@ -9,6 +9,7 @@ import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
+import HelpHint from "../components/HelpHint";
 import { CaretDown, CaretUp, FloppyDisk, UploadSimple, Trash, ArrowLeft, CheckCircle } from "@phosphor-icons/react";
 
 const SECTION_LABELS = {
@@ -224,10 +225,13 @@ export default function EmployeeProfile({ selfView }) {
 
 /* ---------------- Field sections ---------------- */
 
-function FieldRow({ label, children }) {
+function FieldRow({ label, hint, children }) {
   return (
     <div>
-      <Label className="tiny-label">{label}</Label>
+      <Label className="tiny-label inline-flex items-center gap-1.5">
+        {label}
+        {hint && <HelpHint text={hint.text} article={hint.article}/>}
+      </Label>
       <div className="mt-1">{children}</div>
     </div>
   );
@@ -366,8 +370,8 @@ function KYCSection({ value, editable, onSave }) {
   return (
     <SectionCard title="KYC — India IDs" subtitle="Aadhaar is stored only as last 4 digits for privacy" testid="section-kyc">
       <div className="grid grid-cols-2 gap-4">
-        <FieldRow label="PAN (10 char)"><Input disabled={!editable} value={f.form.pan||""} onChange={(e)=>f.set("pan",e.target.value.toUpperCase())} data-testid="input-pan" maxLength={10}/></FieldRow>
-        <FieldRow label="Aadhaar — last 4 digits"><Input disabled={!editable} value={f.form.aadhaar_last4||""} onChange={(e)=>f.set("aadhaar_last4",e.target.value.replace(/\D/g,"").slice(0,4))} data-testid="input-aadhaar" maxLength={4}/></FieldRow>
+        <FieldRow label="PAN (10 char)" hint={{text:"10-character alphanumeric Permanent Account Number. Required for TDS and salary processing.", article:"kyc-documents-employee"}}><Input disabled={!editable} value={f.form.pan||""} onChange={(e)=>f.set("pan",e.target.value.toUpperCase())} data-testid="input-pan" maxLength={10}/></FieldRow>
+        <FieldRow label="Aadhaar — last 4 digits" hint={{text:"We only store the last 4 digits of Aadhaar for DPDP compliance. The full 12-digit number is never retained.", article:"kyc-documents-employee"}}><Input disabled={!editable} value={f.form.aadhaar_last4||""} onChange={(e)=>f.set("aadhaar_last4",e.target.value.replace(/\D/g,"").slice(0,4))} data-testid="input-aadhaar" maxLength={4}/></FieldRow>
         <FieldRow label="Passport number"><Input disabled={!editable} value={f.form.passport_number||""} onChange={(e)=>f.set("passport_number",e.target.value)}/></FieldRow>
         <FieldRow label="Passport expiry"><Input type="date" disabled={!editable} value={f.form.passport_expiry||""} onChange={(e)=>f.set("passport_expiry",e.target.value)}/></FieldRow>
         <FieldRow label="Driving licence"><Input disabled={!editable} value={f.form.driving_license||""} onChange={(e)=>f.set("driving_license",e.target.value)}/></FieldRow>
@@ -383,10 +387,10 @@ function StatutorySection({ value, editable, onSave }) {
   return (
     <SectionCard title="Statutory — India (PF · ESIC · PT · LWF · NPS)" testid="section-statutory">
       <div className="grid grid-cols-2 gap-4">
-        <FieldRow label="UAN (Universal Account Number)"><Input disabled={!editable} value={f.form.uan||""} onChange={(e)=>f.set("uan",e.target.value)} data-testid="input-uan"/></FieldRow>
-        <FieldRow label="PF number"><Input disabled={!editable} value={f.form.pf_number||""} onChange={(e)=>f.set("pf_number",e.target.value)} data-testid="input-pfnum"/></FieldRow>
-        <FieldRow label="ESIC number"><Input disabled={!editable} value={f.form.esic_number||""} onChange={(e)=>f.set("esic_number",e.target.value)}/></FieldRow>
-        <FieldRow label="Professional Tax state">
+        <FieldRow label="UAN (Universal Account Number)" hint={{text:"12-digit UAN issued by EPFO. If the employee worked before, reuse their existing UAN — never generate a new one.", article:"india-statutory-pf-esic-pt"}}><Input disabled={!editable} value={f.form.uan||""} onChange={(e)=>f.set("uan",e.target.value)} data-testid="input-uan"/></FieldRow>
+        <FieldRow label="PF number" hint={{text:"Establishment-wise PF account number for this employee. Format: region code + office code + establishment + account number.", article:"india-statutory-pf-esic-pt"}}><Input disabled={!editable} value={f.form.pf_number||""} onChange={(e)=>f.set("pf_number",e.target.value)} data-testid="input-pfnum"/></FieldRow>
+        <FieldRow label="ESIC number" hint={{text:"Applies only to employees earning ≤ ₹21,000/month. Leave blank if not applicable.", article:"india-statutory-pf-esic-pt"}}><Input disabled={!editable} value={f.form.esic_number||""} onChange={(e)=>f.set("esic_number",e.target.value)}/></FieldRow>
+        <FieldRow label="Professional Tax state" hint={{text:"PT is a state-level tax. Applicable in Maharashtra, Karnataka, Tamil Nadu, West Bengal, and ~10 others. NOT applicable in Delhi, UP, Haryana, Punjab, Rajasthan.", article:"india-statutory-pf-esic-pt"}}>
           <Select value={f.form.pt_state||""} disabled={!editable} onValueChange={(v)=>f.set("pt_state",v)}>
             <SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger>
             <SelectContent>{INDIAN_STATES.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
@@ -416,7 +420,7 @@ function BankSection({ value, editable, onSave }) {
       <div className="grid grid-cols-2 gap-4">
         <FieldRow label="Account holder name"><Input disabled={!editable} value={f.form.account_holder_name||""} onChange={(e)=>f.set("account_holder_name",e.target.value)}/></FieldRow>
         <FieldRow label="Account number"><Input disabled={!editable} value={f.form.account_number||""} onChange={(e)=>f.set("account_number",e.target.value)} data-testid="input-acct-num"/></FieldRow>
-        <FieldRow label="IFSC"><Input disabled={!editable} value={f.form.ifsc||""} onChange={(e)=>f.set("ifsc",e.target.value.toUpperCase())} data-testid="input-ifsc"/></FieldRow>
+        <FieldRow label="IFSC" hint={{text:"11-character IFSC code of the bank branch (e.g. HDFC0001234). Find it on a cancelled cheque or the bank's website."}}><Input disabled={!editable} value={f.form.ifsc||""} onChange={(e)=>f.set("ifsc",e.target.value.toUpperCase())} data-testid="input-ifsc"/></FieldRow>
         <FieldRow label="Bank name"><Input disabled={!editable} value={f.form.bank_name||""} onChange={(e)=>f.set("bank_name",e.target.value)}/></FieldRow>
         <FieldRow label="Branch"><Input disabled={!editable} value={f.form.branch||""} onChange={(e)=>f.set("branch",e.target.value)}/></FieldRow>
         <FieldRow label="Account type">
