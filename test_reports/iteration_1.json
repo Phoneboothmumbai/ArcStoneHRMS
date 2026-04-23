@@ -1,0 +1,39 @@
+{
+  "summary": "First testing iteration for Arcstone HRMS MVP. Ran 25 pytest backend tests + multi-persona Playwright frontend flow. Discovered and fixed 1 critical ObjectId serialization bug in leave_routes + requests_routes (caused 500 on POST /api/leave and POST /api/requests). After fix: 25/25 backend tests pass. All 5 persona logins work, role-based redirects correct, multi-level approval engine (manager -> HR) end-to-end verified, rejection flow verified, attendance check-in/out with double-checkin guard verified, tenant isolation verified, no _id or password_hash leakage, and create-reseller + create-company super admin flows work.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hrms_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No pending action items. All requested features in the review pass."
+  ],
+  "critical_code_review_comments": [
+    "Fixed: leave_routes.py and requests_routes.py returned the inserted doc dict which Mongo mutates with ObjectId _id -> 500 response. Added doc.pop('_id', None) after insert_one. Similar pattern should be audited on any future insert->return flow.",
+    "Auth cookies use secure=False (fine for preview HTTP, but Phase 2 should enable secure + SameSite=None for cross-site prod use).",
+    "approvals_routes.decide does not re-scope by company_id before allowing an approver to decide; relies on step.approver_user_id match. Acceptable but consider double-check against ap.company_id for defense in depth.",
+    "/api/employees for super_admin returns ALL employees globally when no company_id filter provided. Fine for platform admin but consider requiring explicit company_id query to avoid accidental large scan.",
+    "frontend route is /app/org-tree (not /app/org) — route naming is fine; ensure nav links are consistent.",
+    "CORS allow_origins defaults to '*' with allow_credentials=True — browsers reject credentialed * origins. Set explicit origins for production."
+  ],
+  "updated_files": [
+    "/app/backend/routers/leave_routes.py",
+    "/app/backend/routers/requests_routes.py",
+    "/app/backend/tests/test_hrms_backend.py"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% (all personas + flows)"},
+  "test_credentials": "Per /app/memory/test_credentials.md — all 5 personas validated.",
+  "seed_data_creation": "Created TEST_reseller_*, TEST_cadmin_*, TEST_att_* records via API during tests (prefixed TEST_ for easy cleanup).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest suite at /app/backend/tests/test_hrms_backend.py covers the full feature matrix. Run with: pytest backend/tests/test_hrms_backend.py -v. Occasional ConnectTimeout to preview URL - just re-run. Frontend org tree page lives at /app/org-tree. Approvals visible to manager as Inbox count (pending items rendered via data-testid). All 5 roles have dashboards: super_admin -> /app/platform, reseller -> /app/reseller, company_admin -> /app/hr, branch_manager -> /app/manager, employee -> /app/employee.",
+  "rca of the issue": "Bug: POST /api/leave and POST /api/requests returned 500 'Internal Server Error'. Root cause: after await db.<coll>.insert_one(doc), motor mutates the dict in place adding _id (bson.ObjectId). The router returned the dict directly; FastAPI's jsonable_encoder cannot serialize ObjectId, raising TypeError: 'ObjectId' object is not iterable. Reproduction: Login as employee, POST /api/leave -> 500. Mitigation applied: added doc.pop('_id', None) immediately after insert_one in both leave_routes.create_leave and requests_routes.create_request. create_approval_request and attendance already correctly pop _id. Regression guard: test_hrms_backend.py test_leave_approval_end_to_end + test_product_service_request_creation will catch any re-introduction."
+}

@@ -1,0 +1,288 @@
+"""MongoDB client, indexes, and seed data for HRMS SaaS."""
+from __future__ import annotations
+
+import os
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+
+from auth import hash_password, verify_password
+from models import uid, now_iso
+
+log = logging.getLogger("db")
+
+_client: Optional[AsyncIOMotorClient] = None
+_db: Optional[AsyncIOMotorDatabase] = None
+
+
+def init_db() -> AsyncIOMotorDatabase:
+    global _client, _db
+    if _db is None:
+        _client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+        _db = _client[os.environ["DB_NAME"]]
+    return _db
+
+
+def get_db() -> AsyncIOMotorDatabase:
+    if _db is None:
+        return init_db()
+    return _db
+
+
+async def ensure_indexes() -> None:
+    db = get_db()
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("company_id")
+    await db.users.create_index("reseller_id")
+    await db.users.create_index("id", unique=True)
+    await db.resellers.create_index("id", unique=True)
+    await db.companies.create_index("id", unique=True)
+    await db.companies.create_index("reseller_id")
+    await db.employees.create_index("id", unique=True)
+    await db.employees.create_index("company_id")
+    await db.employees.create_index("employee_code")
+    await db.employees.create_index("manager_id")
+    await db.approval_requests.create_index("company_id")
+    await db.approval_requests.create_index("requester_user_id")
+    await db.approval_requests.create_index("status")
+    await db.leave_requests.create_index("company_id")
+    await db.attendance.create_index([("company_id", 1), ("employee_id", 1), ("date", 1)])
+    await db.product_service_requests.create_index("company_id")
+    await db.vendors.create_index("company_id")
+    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.login_attempts.create_index("identifier")
+
+
+async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
+    db = get_db()
+    existing = await db.users.find_one({"email": email})
+    if existing is None:
+        doc = {
+            "id": uid(),
+            "email": email,
+            "password_hash": hash_password(password),
+            "name": name,
+            "role": role,
+            "company_id": company_id,
+            "reseller_id": reseller_id,
+            "employee_id": employee_id,
+            "is_active": True,
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.users.insert_one(doc)
+        return doc
+    # update password if changed (idempotent)
+    if not verify_password(password, existing["password_hash"]):
+        await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(password)}})
+    return existing
+
+
+async def seed_demo_data() -> None:
+    """Idempotent seed: super_admin, demo reseller, demo company (ACME), branches, employees."""
+    db = get_db()
+
+    # 1. Super admin
+    await _upsert_user(
+        email=os.environ.get("ADMIN_EMAIL", "admin@hrms.io"),
+        password=os.environ.get("ADMIN_PASSWORD", "Admin@123"),
+        name="Platform Admin",
+        role="super_admin",
+    )
+
+    # 2. Demo Reseller
+    reseller_email = os.environ.get("DEMO_RESELLER_EMAIL", "reseller@demo.io")
+    reseller = await db.resellers.find_one({"contact_email": reseller_email})
+    if reseller is None:
+        reseller = {
+            "id": uid(),
+            "name": "Arlo Partners",
+            "company_name": "Arlo Partners LLP",
+            "contact_email": reseller_email,
+            "phone": "+1-555-0100",
+            "commission_rate": 0.20,
+            "status": "active",
+            "white_label": {"brand_color": "#2563EB"},
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.resellers.insert_one(reseller)
+    reseller_id = reseller["id"]
+
+    await _upsert_user(
+        email=reseller_email,
+        password=os.environ.get("DEMO_RESELLER_PASSWORD", "Reseller@123"),
+        name="Arlo Partners Admin",
+        role="reseller",
+        reseller_id=reseller_id,
+    )
+
+    # 3. Demo Company (ACME)
+    company = await db.companies.find_one({"name": "ACME Global"})
+    if company is None:
+        company = {
+            "id": uid(),
+            "name": "ACME Global",
+            "reseller_id": reseller_id,
+            "plan": "enterprise",
+            "status": "active",
+            "industry": "Technology",
+            "logo_url": None,
+            "employee_count": 0,
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.companies.insert_one(company)
+    company_id = company["id"]
+
+    # 4. Regions / Countries / Branches / Departments
+    async def _ensure(coll, filt, doc):
+        existing = await db[coll].find_one(filt)
+        if existing:
+            return existing
+        await db[coll].insert_one(doc)
+        return doc
+
+    apac = await _ensure("regions", {"company_id": company_id, "name": "APAC"},
+                        {"id": uid(), "company_id": company_id, "name": "APAC", "head_user_id": None,
+                         "created_at": now_iso(), "updated_at": now_iso()})
+    emea = await _ensure("regions", {"company_id": company_id, "name": "EMEA"},
+                        {"id": uid(), "company_id": company_id, "name": "EMEA", "head_user_id": None,
+                         "created_at": now_iso(), "updated_at": now_iso()})
+
+    india = await _ensure("countries", {"company_id": company_id, "name": "India"},
+                         {"id": uid(), "company_id": company_id, "region_id": apac["id"], "name": "India",
+                          "iso_code": "IN", "head_user_id": None, "created_at": now_iso(), "updated_at": now_iso()})
+    uk = await _ensure("countries", {"company_id": company_id, "name": "United Kingdom"},
+                      {"id": uid(), "company_id": company_id, "region_id": emea["id"], "name": "United Kingdom",
+                       "iso_code": "GB", "head_user_id": None, "created_at": now_iso(), "updated_at": now_iso()})
+
+    blr = await _ensure("branches", {"company_id": company_id, "name": "Bengaluru HQ"},
+                       {"id": uid(), "company_id": company_id, "country_id": india["id"], "name": "Bengaluru HQ",
+                        "city": "Bengaluru", "address": "Koramangala, BLR", "manager_user_id": None,
+                        "created_at": now_iso(), "updated_at": now_iso()})
+    lon = await _ensure("branches", {"company_id": company_id, "name": "London Office"},
+                       {"id": uid(), "company_id": company_id, "country_id": uk["id"], "name": "London Office",
+                        "city": "London", "address": "Shoreditch, London", "manager_user_id": None,
+                        "created_at": now_iso(), "updated_at": now_iso()})
+
+    eng = await _ensure("departments", {"company_id": company_id, "name": "Engineering"},
+                       {"id": uid(), "company_id": company_id, "branch_id": blr["id"], "name": "Engineering",
+                        "head_user_id": None, "created_at": now_iso(), "updated_at": now_iso()})
+    sales = await _ensure("departments", {"company_id": company_id, "name": "Sales"},
+                         {"id": uid(), "company_id": company_id, "branch_id": lon["id"], "name": "Sales",
+                          "head_user_id": None, "created_at": now_iso(), "updated_at": now_iso()})
+
+    # 5. HR admin user + Manager + Employee (with employee records)
+    hr_user = await _upsert_user(
+        email=os.environ.get("DEMO_HR_EMAIL", "hr@acme.io"),
+        password=os.environ.get("DEMO_HR_PASSWORD", "Hr@12345"),
+        name="Priya Sharma",
+        role="company_admin",
+        company_id=company_id,
+    )
+
+    # Create manager employee record
+    mgr_emp = await db.employees.find_one({"company_id": company_id, "email": os.environ.get("DEMO_MANAGER_EMAIL", "manager@acme.io")})
+    if mgr_emp is None:
+        mgr_emp = {
+            "id": uid(),
+            "company_id": company_id,
+            "user_id": None,
+            "employee_code": "ACME-001",
+            "name": "Rahul Verma",
+            "email": os.environ.get("DEMO_MANAGER_EMAIL", "manager@acme.io"),
+            "phone": "+91-9876543210",
+            "employee_type": "hybrid",
+            "region_id": apac["id"],
+            "country_id": india["id"],
+            "branch_id": blr["id"],
+            "department_id": eng["id"],
+            "job_title": "Engineering Manager",
+            "manager_id": None,
+            "role_in_company": "branch_manager",
+            "joined_on": now_iso(),
+            "status": "active",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.employees.insert_one(mgr_emp)
+    mgr_user = await _upsert_user(
+        email=os.environ.get("DEMO_MANAGER_EMAIL", "manager@acme.io"),
+        password=os.environ.get("DEMO_MANAGER_PASSWORD", "Manager@123"),
+        name=mgr_emp["name"],
+        role="branch_manager",
+        company_id=company_id,
+        employee_id=mgr_emp["id"],
+    )
+    await db.employees.update_one({"id": mgr_emp["id"]}, {"$set": {"user_id": mgr_user["id"]}})
+
+    # Create employee record
+    emp_doc = await db.employees.find_one({"company_id": company_id, "email": os.environ.get("DEMO_EMPLOYEE_EMAIL", "employee@acme.io")})
+    if emp_doc is None:
+        emp_doc = {
+            "id": uid(),
+            "company_id": company_id,
+            "user_id": None,
+            "employee_code": "ACME-002",
+            "name": "Aisha Khan",
+            "email": os.environ.get("DEMO_EMPLOYEE_EMAIL", "employee@acme.io"),
+            "phone": "+91-9812345678",
+            "employee_type": "wfh",
+            "region_id": apac["id"],
+            "country_id": india["id"],
+            "branch_id": blr["id"],
+            "department_id": eng["id"],
+            "job_title": "Senior Software Engineer",
+            "manager_id": mgr_emp["id"],
+            "role_in_company": "employee",
+            "joined_on": now_iso(),
+            "status": "active",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.employees.insert_one(emp_doc)
+    emp_user = await _upsert_user(
+        email=os.environ.get("DEMO_EMPLOYEE_EMAIL", "employee@acme.io"),
+        password=os.environ.get("DEMO_EMPLOYEE_PASSWORD", "Employee@123"),
+        name=emp_doc["name"],
+        role="employee",
+        company_id=company_id,
+        employee_id=emp_doc["id"],
+    )
+    await db.employees.update_one({"id": emp_doc["id"]}, {"$set": {"user_id": emp_user["id"]}})
+
+    # Additional sample employees for directory density
+    sample_employees = [
+        ("ACME-003", "James Carter", "james@acme.io", "wfo", "Sales Lead", lon["id"], uk["id"], emea["id"], sales["id"], "sub_manager"),
+        ("ACME-004", "Sofia Rossi", "sofia@acme.io", "field", "Field Sales Exec", lon["id"], uk["id"], emea["id"], sales["id"], "employee"),
+        ("ACME-005", "Noah Chen", "noah@acme.io", "hybrid", "Backend Engineer", blr["id"], india["id"], apac["id"], eng["id"], "employee"),
+        ("ACME-006", "Yuki Tanaka", "yuki@acme.io", "wfh", "Product Designer", blr["id"], india["id"], apac["id"], eng["id"], "employee"),
+    ]
+    for code, name, mail, etype, title, br, co, rg, dp, role in sample_employees:
+        if not await db.employees.find_one({"company_id": company_id, "employee_code": code}):
+            await db.employees.insert_one({
+                "id": uid(), "company_id": company_id, "user_id": None, "employee_code": code,
+                "name": name, "email": mail, "phone": None, "employee_type": etype,
+                "region_id": rg, "country_id": co, "branch_id": br, "department_id": dp,
+                "job_title": title, "manager_id": mgr_emp["id"], "role_in_company": role,
+                "joined_on": now_iso(), "status": "active",
+                "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    # update company employee_count
+    count = await db.employees.count_documents({"company_id": company_id})
+    await db.companies.update_one({"id": company_id}, {"$set": {"employee_count": count}})
+
+    # Sample vendor
+    if not await db.vendors.find_one({"company_id": company_id, "name": "OfficeMart Supplies"}):
+        await db.vendors.insert_one({
+            "id": uid(), "company_id": company_id, "name": "OfficeMart Supplies",
+            "category": "Office Equipment", "contact_email": "sales@officemart.io",
+            "phone": "+91-9000000000", "country_id": india["id"], "status": "active",
+            "created_at": now_iso(), "updated_at": now_iso(),
+        })
+
+    log.info("Seed completed. Company=%s employees=%s", company_id, count)
