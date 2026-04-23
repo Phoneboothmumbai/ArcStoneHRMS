@@ -77,6 +77,15 @@ async def ensure_indexes() -> None:
     await db.leave_balances.create_index([("company_id", 1), ("employee_id", 1), ("leave_type_id", 1), ("year", 1)], unique=True)
     await db.holidays.create_index([("company_id", 1), ("date", 1)])
     await db.leave_adjustments_log.create_index([("company_id", 1), ("employee_id", 1)])
+    # Phase 1C — Attendance
+    await db.shifts.create_index([("company_id", 1), ("code", 1)], unique=True)
+    await db.shift_assignments.create_index([("company_id", 1), ("employee_id", 1), ("from_date", -1)])
+    await db.work_sites.create_index([("company_id", 1)])
+    await db.regularizations.create_index([("company_id", 1), ("employee_id", 1), ("date", 1)])
+    await db.overtime_requests.create_index([("company_id", 1), ("employee_id", 1), ("date", 1)])
+    await db.timesheets.create_index([("company_id", 1), ("employee_id", 1), ("week_start", 1)], unique=True)
+    await db.attendance.create_index([("company_id", 1), ("date", 1)])
+    await db.attendance.create_index([("employee_id", 1), ("date", 1)])
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
@@ -458,3 +467,33 @@ async def seed_demo_data() -> None:
     lt, h = await seed_leave_types_and_holidays(db, company_id)
     if lt or h:
         log.info("Seeded %d leave types + %d holidays for company=%s", lt, h, company_id)
+
+    # 11. Seed default shifts for ACME (idempotent)
+    from models_attendance import Shift
+    default_shifts = [
+        {"name": "General 9–6", "code": "GEN", "category": "general",
+         "start_time": "09:00", "end_time": "18:00", "break_minutes": 60,
+         "grace_minutes": 15, "is_default": True, "color": "#0ea5e9", "sort_order": 10},
+        {"name": "Morning 6–3", "code": "MORN", "category": "morning",
+         "start_time": "06:00", "end_time": "15:00", "break_minutes": 45,
+         "grace_minutes": 10, "color": "#f59e0b", "sort_order": 20},
+        {"name": "Afternoon 2–11", "code": "AFT", "category": "afternoon",
+         "start_time": "14:00", "end_time": "23:00", "break_minutes": 45,
+         "grace_minutes": 15, "color": "#8b5cf6", "sort_order": 30},
+        {"name": "Night 10pm–7am", "code": "NIGHT", "category": "night",
+         "start_time": "22:00", "end_time": "07:00", "break_minutes": 45,
+         "grace_minutes": 10, "is_overnight": True, "color": "#1e40af", "sort_order": 40},
+        {"name": "Flexible (any 9h)", "code": "FLEX", "category": "flexible",
+         "start_time": "08:00", "end_time": "20:00", "break_minutes": 60,
+         "grace_minutes": 60, "color": "#10b981", "sort_order": 50},
+    ]
+    existing_codes = {s["code"] async for s in db.shifts.find({"company_id": company_id}, {"_id": 0, "code": 1})}
+    s_inserted = 0
+    for sdef in default_shifts:
+        if sdef["code"] in existing_codes:
+            continue
+        doc = Shift(company_id=company_id, **sdef).model_dump()
+        await db.shifts.insert_one(doc)
+        s_inserted += 1
+    if s_inserted:
+        log.info("Seeded %d default shifts for company=%s", s_inserted, company_id)

@@ -35,6 +35,10 @@ from routers.leave_admin_routes import (
     router as leave_admin_router, public as leave_types_router,
     holidays_router, balances_router as leave_balances_router,
 )
+from routers.attendance_admin_routes import (
+    shifts_router, assignments_router, worksites_router,
+    reg_router, ot_router, ts_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -89,6 +93,12 @@ app.include_router(leave_admin_router)
 app.include_router(leave_types_router)
 app.include_router(holidays_router)
 app.include_router(leave_balances_router)
+app.include_router(shifts_router)
+app.include_router(assignments_router)
+app.include_router(worksites_router)
+app.include_router(reg_router)
+app.include_router(ot_router)
+app.include_router(ts_router)
 
 app.add_middleware(
     CORSMiddleware,

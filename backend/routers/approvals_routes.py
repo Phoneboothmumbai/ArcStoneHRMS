@@ -311,7 +311,14 @@ async def decide(approval_id: str, body: ApprovalDecision, user=Depends(get_curr
     }})
 
     if ap.get("linked_id"):
-        coll = "leave_requests" if ap["request_type"] == "leave" else "product_service_requests"
+        coll_map = {
+            "leave": "leave_requests",
+            "product_service": "product_service_requests",
+            "regularization": "regularizations",
+            "overtime": "overtime_requests",
+            "timesheet": "timesheets",
+        }
+        coll = coll_map.get(ap["request_type"], "product_service_requests")
         await db[coll].update_one({"id": ap["linked_id"]}, {"$set": {"status": ap["status"], "updated_at": now_iso()}})
         # Leave balance ledger sync: move pending → used on approve; release on reject
         if ap["request_type"] == "leave" and ap["status"] in ("approved", "rejected"):

@@ -30,6 +30,7 @@ const NAV_BY_ROLE = {
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
     { to: "/app/leave-admin", label: "Leave Admin", icon: CalendarCheck },
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
+    { to: "/app/attendance-admin", label: "Attendance Admin", icon: ClockClockwise },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
     { to: "/app/billing", label: "Billing & Modules", icon: Receipt },
   ],
