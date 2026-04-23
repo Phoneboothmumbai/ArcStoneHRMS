@@ -86,6 +86,11 @@ async def ensure_indexes() -> None:
     await db.timesheets.create_index([("company_id", 1), ("employee_id", 1), ("week_start", 1)], unique=True)
     await db.attendance.create_index([("company_id", 1), ("date", 1)])
     await db.attendance.create_index([("employee_id", 1), ("date", 1)])
+    # Phase 1D — Notifications
+    await db.notifications.create_index([("recipient_user_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("recipient_user_id", 1), ("read", 1)])
+    await db.notifications.create_index([("recipient_user_id", 1), ("dedup_key", 1)], unique=False, sparse=True)
+    await db.notification_prefs.create_index("user_id", unique=True)
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:

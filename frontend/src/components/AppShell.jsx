@@ -4,6 +4,7 @@ import {
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
   Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen,
 } from "@phosphor-icons/react";
+import NotificationsBell from "./NotificationsBell";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
@@ -146,6 +147,7 @@ export default function AppShell({ children, title }) {
                 <Question size={14} weight="bold"/>
                 Help
               </NavLink>
+              <NotificationsBell/>
               <div className="tiny-label">{user.email}</div>
             </div>
           </div>

@@ -58,6 +58,22 @@ async def start_offboarding(
         notice_period_days=body.notice_period_days, clearance=clearance,
     ).model_dump()
     await db.offboardings.insert_one(doc)
+
+    # Notify HR + employee
+    try:
+        from notify import notify, company_admins
+        admins = await company_admins(db, cid)
+        for a_id in admins:
+            await notify(
+                company_id=cid, recipient_user_id=a_id,
+                event="offboarding.initiated",
+                data={"employee": emp["name"], "lwd": body.last_working_day},
+                link=f"/app/offboarding/{doc['id']}",
+                dedup_key=f"offboarding:{doc['id']}:init:{a_id}",
+            )
+    except Exception:
+        pass
+
     doc.pop("_id", None)
     return doc
 

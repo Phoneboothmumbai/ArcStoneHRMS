@@ -235,6 +235,21 @@ async def create_approval_request(
     }
     await db.approval_requests.insert_one(doc)
     doc.pop("_id", None)
+
+    # Notify the first approver (if any)
+    try:
+        from notify import notify
+        if steps:
+            first = steps[0]
+            await notify(
+                company_id=company_id, recipient_user_id=first["approver_user_id"],
+                event="approval.pending",
+                data={"actor": requester_name, "title": title},
+                link="/app/approvals", dedup_key=f"approval:{doc['id']}:step1",
+            )
+    except Exception:
+        pass
+
     return doc
 
 
@@ -332,6 +347,32 @@ async def decide(approval_id: str, body: ApprovalDecision, user=Depends(get_curr
                     if ap["status"] == "approved":
                         patch["used"] = float(bal.get("used", 0)) + days
                     await db.leave_balances.update_one({"id": bal["id"]}, {"$set": patch})
+
+    # Notify requester + next approver (if still in flight)
+    try:
+        from notify import notify
+        if ap["status"] in ("approved", "rejected"):
+            await notify(
+                company_id=ap["company_id"],
+                recipient_user_id=ap["requester_user_id"],
+                event=f"approval.{ap['status']}",
+                data={"approver": user.get("name") or user.get("email"), "title": ap["title"]},
+                link=f"/app/approvals",
+                dedup_key=f"approval:{ap['id']}:final",
+            )
+        else:
+            next_step_obj = next((s for s in ap["steps"] if s["step"] == ap["current_step"]), None)
+            if next_step_obj:
+                await notify(
+                    company_id=ap["company_id"],
+                    recipient_user_id=next_step_obj["approver_user_id"],
+                    event="approval.pending",
+                    data={"actor": ap["requester_name"], "title": ap["title"]},
+                    link="/app/approvals",
+                    dedup_key=f"approval:{ap['id']}:step{ap['current_step']}",
+                )
+    except Exception:
+        pass
 
     return ap
 

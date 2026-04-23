@@ -27,6 +27,7 @@ import Offboarding, { OffboardingDetail } from "./pages/Offboarding";
 import KnowledgeBase, { KnowledgeBaseArticle, KBAdmin } from "./pages/KnowledgeBase";
 import LeaveAdmin from "./pages/LeaveAdmin";
 import AttendanceAdmin from "./pages/AttendanceAdmin";
+import Notifications, { NotificationPreferences } from "./pages/Notifications";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -68,6 +69,8 @@ function App() {
           <Route path="/app/kb-admin" element={<ProtectedRoute roles={["super_admin"]}><KBAdmin /></ProtectedRoute>} />
           <Route path="/app/leave-admin" element={<ProtectedRoute roles={["super_admin","company_admin"]}><LeaveAdmin /></ProtectedRoute>} />
           <Route path="/app/attendance-admin" element={<ProtectedRoute roles={["super_admin","company_admin","branch_manager","country_head","region_head"]}><AttendanceAdmin /></ProtectedRoute>} />
+          <Route path="/app/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+          <Route path="/app/notification-prefs" element={<ProtectedRoute><NotificationPreferences /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

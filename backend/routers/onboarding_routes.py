@@ -129,6 +129,21 @@ async def start_onboarding(
     ).model_dump()
     await db.onboardings.insert_one(doc)
     await db.employees.update_one({"id": emp["id"]}, {"$set": {"status": "onboarding"}})
+
+    # Notify the new hire if they have a user account
+    try:
+        from notify import notify
+        if emp.get("user_id"):
+            await notify(
+                company_id=cid, recipient_user_id=emp["user_id"],
+                event="onboarding.task_assigned",
+                data={"title": f"Welcome — {len(task_states)} onboarding tasks", "due_date": body.date_of_joining},
+                link=f"/app/onboarding/{doc['id']}",
+                dedup_key=f"onboarding:{doc['id']}:welcome",
+            )
+    except Exception:
+        pass
+
     doc.pop("_id", None)
     return doc
 
