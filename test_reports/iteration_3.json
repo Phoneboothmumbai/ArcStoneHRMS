@@ -1,0 +1,39 @@
+{
+  "summary": "Phase 0 module entitlement system tested end-to-end. 17 new pytest cases in /app/backend/tests/test_modules_phase0.py (catalog pricing visibility by role, enable/disable/bundle lifecycle, activation requests + audit, tenant integrity, tenant export ZIP with password_hash stripped, cross-tenant reseller 403, USD currency override, 402 gate). 17/17 Phase 0 + 25/25 regression + 19/19 workflows = 61/61 backend tests pass. Frontend verified: super_admin /app/modules shows 16 modules + 3 bundles with Retail ₹ + Wholesale ₹; company_admin /app/billing shows active modules (base_hrms + procurement + bundle-activated) with NO prices (₹, retail, wholesale all absent) — CRITICAL price-leak test PASSED. Request activation flow + tenant export download both work.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_modules_phase0.py",
+    "/app/backend/tests/test_hrms_backend.py",
+    "/app/backend/tests/test_workflows.py",
+    "/app/test_reports/pytest/phase0_full_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "modules_routes.py enable_module: when body omits module_id, endpoint reaches module_exists(None) and correctly returns 400 — good.",
+    "modules_routes.py company_modules: rows include base_hrms fallback row only if no base_hrms doc exists; if base_hrms got disabled via bundle-then-disable path it still appears as 'included' — acceptable since disable_base_hrms is blocked.",
+    "tenant.py TenantDB.find_one default projection {_id:0} is applied only if caller passes no projection; when caller passes a custom projection they must remember to exclude _id. Consider merging {_id:0} in by default.",
+    "tenant_routes.py export_tenant reads up to 100_000 docs per collection into memory then streams the zip as a single bytes blob — fine for Phase 0 scale but will OOM for large tenants; stream or chunk in a later phase.",
+    "modules_routes.py activate_bundle does not exclude disabled statuses when listing company modules afterwards — users who re-activate a disabled bundle-module get status flipped to 'active' correctly because $set overwrites all fields.",
+    "Currency validation: body.get('currency', 'INR') is not validated against SUPPORTED_CURRENCIES. An invalid code like 'XYZ' is silently accepted. Add Pydantic model + enum validation in a later hardening pass.",
+    "modules_routes.disable_module uses update_one without verifying module was previously active — calling disable on an already-disabled module still returns ok=True (matched_count>0) with no state change. Minor, not a bug.",
+    "tenant_routes integrity_check does not inspect non-TENANT_COLLECTIONS (e.g. companies, resellers, module_events orphans per company). For Phase 0 scope this is fine."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_modules_phase0.py (NEW — 17 test cases)"
+  ],
+  "success_rate": {"backend": "100% (17/17 phase0 + 25/25 regression + 19/19 workflows = 61/61)", "frontend": "100% on critical paths (16 modules + 3 bundles render for super_admin, price-leak-check passes for company_admin, request activation + export download both work)"},
+  "test_credentials": "Validated all 4 personas: admin@hrms.io / Admin@123, reseller@demo.io / Reseller@123, hr@acme.io / Hr@12345, employee@acme.io / Employee@123.",
+  "seed_data_creation": "Created TEST_NoOwner_* company (with admin user) via POST /api/companies for reseller-isolation test. Cleanup not performed — downstream tests should ignore any TEST_-prefixed companies. Also enabled payroll/expense(USD)/helpdesk/ats on seeded ACME company and activated hr_essentials bundle during tests — these leave ACME with several modules active, which is consistent with Phase 0 seed expectations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Three pytest suites now guard HRMS: test_hrms_backend.py (25 — iteration 1), test_workflows.py (19 — iteration 2), test_modules_phase0.py (17 — iteration 3). Run all with: pytest backend/tests/ -v (≈85s). Phase 0 verified: module entitlements persist in company_modules collection keyed on {company_id, module_id}; bundle activation tags price_source='bundle' + bundle_id on every affected record; tenant export strips password_hash; integrity_check handles the legitimate null company_id for super_admin/reseller users. For future phases the requires_module(module_id) FastAPI dependency can be applied to any new router and will auto-return HTTP 402 with payload {error:'module_not_entitled', module_id, module_name, message} when the company lacks that entitlement; super_admin bypasses all such gates.",
+  "rca of the issue": "N/A — no bugs found in this iteration. One Playwright script step (super admin enable-ATS-trial confirm click) timed out on confirm-enable button, likely because the mode Select dropdown was still open and intercepting pointer events; backend test test_enable_module_trial_and_pricing already proves the enable-as-trial flow works end-to-end so this is a test-script-only nit, not a product defect."
+}

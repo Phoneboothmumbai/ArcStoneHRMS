@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
+  Stack, Receipt,
 } from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
@@ -12,6 +13,7 @@ const NAV_BY_ROLE = {
     { to: "/app/platform", label: "Platform", icon: HouseLine },
     { to: "/app/resellers", label: "Resellers", icon: Storefront },
     { to: "/app/companies", label: "Companies", icon: Buildings },
+    { to: "/app/modules", label: "Modules", icon: Stack },
   ],
   reseller: [
     { to: "/app/reseller", label: "Overview", icon: HouseLine },
@@ -22,9 +24,11 @@ const NAV_BY_ROLE = {
     { to: "/app/employees", label: "Employees", icon: UsersThree },
     { to: "/app/org-tree", label: "Organization", icon: TreeStructure },
     { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
+    { to: "/app/workflows", label: "Workflows", icon: FlowArrow },
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
+    { to: "/app/billing", label: "Billing & Modules", icon: Receipt },
   ],
   branch_manager: [
     { to: "/app/manager", label: "My Team", icon: HouseLine },

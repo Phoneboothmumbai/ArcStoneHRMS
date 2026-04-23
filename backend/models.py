@@ -86,6 +86,8 @@ class Company(BaseDoc):
     industry: Optional[str] = None
     logo_url: Optional[str] = None
     employee_count: int = 0
+    region: str = "in-blr"            # data-residency region (in-blr, in-bom, eu-fra, sg, us)
+    default_currency: str = "INR"     # ISO 4217
 
 
 class CompanyCreate(BaseModel):
@@ -93,9 +95,16 @@ class CompanyCreate(BaseModel):
     reseller_id: Optional[str] = None
     plan: Literal["starter", "growth", "enterprise"] = "growth"
     industry: Optional[str] = None
+    region: str = "in-blr"
+    default_currency: str = "INR"
     admin_email: EmailStr
     admin_name: str
     admin_password: str
+
+
+class Price(BaseModel):
+    amount: float
+    currency: str = "INR"
 
 
 # ---------- Organization hierarchy ----------

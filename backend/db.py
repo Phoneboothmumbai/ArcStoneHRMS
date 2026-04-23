@@ -52,6 +52,10 @@ async def ensure_indexes() -> None:
     await db.product_service_requests.create_index("company_id")
     await db.vendors.create_index("company_id")
     await db.approval_workflows.create_index([("company_id", 1), ("request_type", 1), ("is_active", 1)])
+    await db.company_modules.create_index([("company_id", 1), ("module_id", 1)], unique=True)
+    await db.company_modules.create_index("status")
+    await db.module_events.create_index([("company_id", 1), ("at", -1)])
+    await db.module_activation_requests.create_index([("company_id", 1), ("status", 1)])
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.login_attempts.create_index("identifier")
 
@@ -132,6 +136,8 @@ async def seed_demo_data() -> None:
             "industry": "Technology",
             "logo_url": None,
             "employee_count": 0,
+            "region": "in-blr",          # data residency — Bengaluru for Indian DPDP
+            "default_currency": "INR",   # multi-currency default
             "created_at": now_iso(),
             "updated_at": now_iso(),
         }
@@ -370,3 +376,25 @@ async def seed_demo_data() -> None:
     })
 
     log.info("Seed completed. Company=%s employees=%s", company_id, count)
+
+    # 7. Seed module entitlements for ACME (base_hrms always on; procurement as active demo)
+    async def _ensure_mod(module_id, status="active", amount=None, price_source="retail"):
+        existing = await db.company_modules.find_one({"company_id": company_id, "module_id": module_id})
+        if existing:
+            return
+        from modules_catalog import MODULES
+        mod = MODULES.get(module_id)
+        if not mod:
+            return
+        await db.company_modules.insert_one({
+            "id": uid(), "company_id": company_id, "module_id": module_id,
+            "status": status, "activated_at": now_iso(), "activated_by": None,
+            "trial_until": None,
+            "effective_amount": amount if amount is not None else mod["retail_price"],
+            "effective_currency": "INR", "price_source": price_source,
+            "created_at": now_iso(), "updated_at": now_iso(),
+        })
+
+    await _ensure_mod("base_hrms", status="active", price_source="included")
+    await _ensure_mod("procurement", status="active")
+    log.info("Module entitlements seeded for company=%s", company_id)

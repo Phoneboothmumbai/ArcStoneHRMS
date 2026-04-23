@@ -19,6 +19,9 @@ import MySubmissions from "./pages/MySubmissions";
 import Companies from "./pages/Companies";
 import Resellers from "./pages/Resellers";
 import Workflows from "./pages/Workflows";
+import Modules from "./pages/Modules";
+import BillingAndModules from "./pages/BillingAndModules";
+import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -33,6 +36,7 @@ function RoleRedirect() {
 function App() {
   return (
     <AuthProvider>
+      <ModulesProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -59,10 +63,13 @@ function App() {
           <Route path="/app/requests" element={<ProtectedRoute><ProductServiceRequests /></ProtectedRoute>} />
           <Route path="/app/my-submissions" element={<ProtectedRoute><MySubmissions /></ProtectedRoute>} />
           <Route path="/app/workflows" element={<ProtectedRoute roles={["super_admin", "company_admin", "country_head", "region_head"]}><Workflows /></ProtectedRoute>} />
+          <Route path="/app/modules" element={<ProtectedRoute roles={["super_admin"]}><Modules /></ProtectedRoute>} />
+          <Route path="/app/billing" element={<ProtectedRoute roles={["company_admin", "country_head", "region_head"]}><BillingAndModules /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ModulesProvider>
     </AuthProvider>
   );
 }
