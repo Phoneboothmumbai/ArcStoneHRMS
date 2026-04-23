@@ -27,25 +27,20 @@
 - Tenant isolation at API layer via `company_id` JWT claim + row-level query filter
 
 ## What's been implemented (2026-02-23)
-- FastAPI backend with 12 routers (auth, resellers, companies, org, employees, approvals, leave, attendance, requests, vendors, dashboard, workflows)
-- 16 MongoDB collections with proper indexes (including compound `{company_id, request_type, is_active}` for workflow lookup)
-- Idempotent seed: 1 super admin + 1 reseller (Arlo Partners) + 1 company (ACME Global) + 2 regions + 2 countries + 2 branches + 2 departments + 6 employees + 5 sample approval workflows
-- **Configurable approval engine (Feb 23)** — per-company, per-request-type, per-category workflows with cost/days/branch matchers, step resolvers (manager, department_head, branch_manager, company_admin, role, user), conditional cost thresholds, priority scoring, graceful fallback to manager walk-up when no workflow matches
-- Generic multi-level approval engine walking the manager hierarchy (fallback path)
-- Leave workflow (5 types, calendar range, days computed, routed through configurable approval engine)
-- Attendance with check-in/check-out, hours calculation, per-day enforcement, WFO/WFH/field types
-- Product/service request module with `item_category` (computer, stationery, furniture, etc.), vendor routing, configurable approval chain
-- Landing page (marketing + reseller program CTA + architecture section)
-- Unified login with 5 one-click demo persona shortcuts
-- Role-based redirect post-login
-- 5 persona dashboards (Platform, Reseller, HR, Manager, Employee)
-- Employee directory with search + type filter
-- Organization hierarchy tree (collapsible, per-level metadata)
-- Approvals queue (inbox + submitted + all-involved tabs, decision dialogs with comment)
-- My submissions page with step-by-step chain progress visualization
-- **Workflow Builder UI (Feb 23)** — HR admin creates/edits/toggles/deletes workflows; drag-to-reorder steps; match rules for item category, leave type, cost/days range, branch scope
-- Company/reseller onboarding flows for super admin + reseller
-- 44/44 backend pytest tests passing (25 MVP + 19 workflow engine), all frontend persona flows verified
+- **Phase 0 complete (Feb 23)** — Module entitlement framework with 16 modules + 3 bundles (HR Essentials, People Ops Full, Enterprise Complete). Two-tier pricing (retail + wholesale) stored separately with role-gated visibility: super_admin sees both, reseller sees wholesale, company_admin/employee sees NONE. Module gate `requires_module()` returns HTTP 402 + clean upgrade payload when company lacks entitlement. Trial mode with auto-expiry. Bundle activation with proportional price distribution. Module activation requests flow from company_admin → reseller → super_admin. Full audit log of every enable/disable/request event.
+- **Tenant isolation hardened (Feb 23)** — TenantDB query wrapper auto-injects `company_id` on every read/write; `requires_module()` + `require_roles()` dependencies; integrity scanner endpoint verifies no orphan documents per company. Fourth layer defense-in-depth.
+- **Multi-currency support (Feb 23)** — Price model (`{amount, currency}`) supports INR/USD/EUR/GBP/AED/SGD from day one.
+- **Data residency (Feb 23)** — Company model now has `region` field (in-blr, in-bom, eu-fra, etc.) for DPDP compliance. Migration-ready: region-aware Mongo URI switchable via env.
+- **Tenant export (Feb 23)** — `POST /api/tenant/{id}/export` returns a zip containing every tenant-scoped collection as JSON (password_hash stripped). GDPR + DPDP right-to-portability compliant.
+- FastAPI backend with 14 routers (auth, resellers, companies, org, employees, approvals, leave, attendance, requests, vendors, dashboard, workflows, modules, tenant)
+- 19 MongoDB collections with proper indexes (compound `{company_id, module_id}` unique on company_modules; `{company_id, at}` on module_events)
+- Idempotent seed: 1 super admin + 1 reseller + 1 company (ACME, region=in-blr, INR) + 2 regions + 2 countries + 2 branches + 2 departments + 6 employees + 5 sample approval workflows + 2 seeded module entitlements (base_hrms, procurement)
+- Configurable approval engine with 5 sample workflows
+- Leave, Attendance, Product/Service Requests, Vendors, Org Tree, Employee Directory
+- Landing page, unified login, 5 persona dashboards, Workflow Builder UI, Approvals queue
+- Super Admin Modules page (toggle modules per company, bundles, audit log)
+- Company Admin Billing & Modules page (active modules, request activation, data export)
+- 61/61 backend pytest tests passing, all frontend persona flows verified
 
 ## Backlog — prioritized
 
