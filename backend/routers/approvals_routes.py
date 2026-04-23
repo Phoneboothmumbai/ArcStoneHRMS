@@ -313,6 +313,18 @@ async def decide(approval_id: str, body: ApprovalDecision, user=Depends(get_curr
     if ap.get("linked_id"):
         coll = "leave_requests" if ap["request_type"] == "leave" else "product_service_requests"
         await db[coll].update_one({"id": ap["linked_id"]}, {"$set": {"status": ap["status"], "updated_at": now_iso()}})
+        # Leave balance ledger sync: move pending → used on approve; release on reject
+        if ap["request_type"] == "leave" and ap["status"] in ("approved", "rejected"):
+            lr = await db.leave_requests.find_one({"id": ap["linked_id"]}, {"_id": 0})
+            if lr and lr.get("balance_id"):
+                bal = await db.leave_balances.find_one({"id": lr["balance_id"]}, {"_id": 0})
+                if bal:
+                    days = float(lr.get("days", 0))
+                    new_pending = max(0.0, float(bal.get("pending", 0)) - days)
+                    patch = {"pending": new_pending, "updated_at": now_iso()}
+                    if ap["status"] == "approved":
+                        patch["used"] = float(bal.get("used", 0)) + days
+                    await db.leave_balances.update_one({"id": bal["id"]}, {"$set": patch})
 
     return ap
 

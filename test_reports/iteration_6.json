@@ -1,0 +1,37 @@
+{
+  "summary": "Phase 1B — Leave deepening. Backend: 18/18 pytest cases PASS in /app/backend/tests/test_leave_phase1b.py covering: 9 seeded leave types with correct India defaults (CL=12, EL=21 monthly+encashable, SL requires_document, ML female-only, PL male-only, LOP allow_negative); 22 India 2026 holidays returned by year filter; balance auto-creation with computed available=allotted+carried+adjustments-used-pending; LeaveCreateV2 with half_day_start=true → days=1.5 (Mon-am + Tue-full); Sun+mandatory-holiday exclusion verified (2026-01-23→26 via LOP = 2.0 days, Sun 25 + Republic Day 26 excluded); overdraw on CL returns 400 with 'Insufficient balance' message; LOP bypasses balance check; notice_days enforced (EL 7-day notice → 400 'notice' on tomorrow); cancel releases pending to 0; full approval chain approve drives status→approved and moves balance pending→used with cancel-approved restoring used; team-calendar shape correct; leave-types CRUD gated to company_admin (hr ok, emp 403, dup code 400, soft-delete via is_active=false); holidays CRUD gated similarly; balance adjust writes to leave_adjustments_log. Frontend (Playwright): employee@acme.io /app/leave renders 3 tabs (My leave, Team calendar, Holidays), 4 stat cards (CL/SL/EL/COMP with '10.0 · 2.0 pending · 12.0 allotted' style text to 1 decimal), All 9 balances table with color dots, 'My leave requests' table showing cancelled LOP from backend test run. HR /app/leave-admin default 'Leave types' tab shows all 9 types with columns Type/Days/yr/Accrual/Carry fwd/Encashable/Paid (e.g., EL shows 21.0 Monthly Yes(cap 45) Yes Yes; LOP shows None No No No). Holidays tab present. 'Leave Admin' sidebar link only shows for HR. Employee navigating /app/leave-admin is redirected to /app/employee (ProtectedRoute works).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_leave_phase1b.py",
+    "/app/test_reports/pytest/phase1b_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "leave_admin_routes.get_employee_balances: gender filter is 'best-effort' — if employee_profile has no personal.gender, Maternity (female-only) + Paternity (male-only) BOTH leak into every employee's balance list. On the screenshot, the male employee@acme.io sees ML=182.0 and PL=15.0 simultaneously. Recommend defaulting profile-less employees to 'any'-only types, or enforce gender capture during onboarding. Not a security/data bug, but a policy hygiene gap.",
+    "leave_routes._working_days: weekly_offs is hard-coded to [6] (Sunday only). Indian 5-day companies will under-count by treating Saturdays as working. Code comment flags 'Config per-company in Phase 1E' — leave as-is for Phase 1B but don't forget.",
+    "leave_routes.create_leave: half_day_end logic line 49 `inc = 0.5 if inc == 1.0 else inc` — when start==end AND half_day_start=True AND half_day_end=True on a single-day leave, this keeps inc at 0.5 (doesn't double-deduct). Unexpected for a user who toggled both — consider clarifying UX or documenting.",
+    "leave_routes.cancel_leave: does not null-out approval_request_id or mark the linked approval_request as 'cancelled' — the approval stays pending forever on approver's queue even after requester cancels. HR will see a phantom pending approval. Recommend: when cancelling a pending leave, also mark approval_requests.status='cancelled'.",
+    "approvals_routes.decide: on reject, balance ledger code (lines 317-327) releases pending correctly (sets pending -= days, does NOT add to used). Good. But there is no explicit test path for approve→cancel cycle restoring the correct 'used' counter when multiple sequential approves and cancels happen — the float arithmetic uses max(0, ...) so underflows are safely clamped. Consider storing an immutable ledger row per balance mutation for audit in a future phase.",
+    "leave_admin_routes.update_leave_type: does not check uniqueness of new code — HR could PUT type A to use code='CL' and collide silently with an existing CL. Unique index on (company_id, code) will then throw on subsequent inserts. Add explicit 400 check mirroring create_leave_type.",
+    "leave_admin_routes.list_holidays: no pagination — 500 row cap is fine now, but multi-year companies will eventually need year+kind indexing at the query layer.",
+    "Leave.jsx (frontend): pending calculation relies on server 'pending' field; on cancel, UI should immediately re-fetch /api/leave-balances/employee/{id} to reflect the drop. Validated visually that the existing cancelled-LOP request shows 0.0 pending, so the flow does refresh."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_leave_phase1b.py (NEW — 18 pytest cases for Phase 1B)"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 phase1B pytest)",
+    "frontend": "100% on critical paths validated via screenshots (3 employee tabs, 4 stat cards, 9-balance table with color dots, leave-admin 9 types + columns + sidebar link, non-admin redirect)"
+  },
+  "test_credentials": "admin@hrms.io/Admin@123, hr@acme.io/Hr@12345, employee@acme.io/Employee@123, manager@acme.io/Manager@123 — all verified working per /app/memory/test_credentials.md.",
+  "seed_data_creation": "During the approve-flow pytest, a CL leave request was created+approved+cancelled (net-zero balance). During cancel-pending test, another CL leave was created+cancelled (net-zero). During LOP test, an LOP leave was created+cancelled. A 'TEST_ Company Day' holiday was created+deleted. A 'TEST_Study Leave' (TSTSL) leave type was created, updated, and soft-deleted (is_active=false) — it remains in DB with is_active=false but is filtered out of /api/leave-types. Balance adjustment +1.5 then -1.5 net zero on CL. No net data leaks.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Six pytest suites guard HRMS: test_hrms_backend.py, test_workflows.py, test_modules_phase0.py, test_phase1a_lifecycle.py, test_kb_phase1m.py, test_leave_phase1b.py. Phase 1B: /api/leave-types (list), /api/leave-admin/types (CRUD, admin only), /api/holidays (CRUD, admin only), /api/leave-balances/employee/{emp_id} (auto-create, computed available), /api/leave-balances/employee/{id}/adjust, /api/leave POST (LeaveCreateV2: leave_type_id + half_day_start/end), /api/leave/cancel/{id}, /api/leave/team-calendar. Leave balance pending→used handled inside /api/approvals/{id}/decide (routers/approvals_routes.py lines 313-327). Default seed: 9 types per company (CL/SL/EL/COMP/ML/PL/BL/MRL/LOP) + 22 India 2026 holidays from leave_seed.py. Known policy hygiene gap: employees without a gender in employee_profiles.personal.gender see both ML and PL balance rows — recommend capturing gender during onboarding for clean balance UX. Cancel of a pending leave does NOT cancel the linked approval_request — fix recommended.",
+  "rca of the issue": "N/A — no functional defects. Two minor hygiene items: (1) Gender-less profiles see both ML+PL balance entries (data integrity, not code bug); (2) Cancelling a pending leave leaves the approval_request on the approver's queue — requires one-line fix in leave_routes.cancel_leave to also update approval_requests.status='cancelled' when applicable. Neither blocks Phase 1B acceptance."
+}

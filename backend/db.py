@@ -72,6 +72,11 @@ async def ensure_indexes() -> None:
     await db.kb_articles.create_index("slug", unique=True)
     await db.kb_articles.create_index("category")
     await db.kb_articles.create_index("related_page")
+    # Phase 1B — Leave
+    await db.leave_types.create_index([("company_id", 1), ("code", 1)], unique=True)
+    await db.leave_balances.create_index([("company_id", 1), ("employee_id", 1), ("leave_type_id", 1), ("year", 1)], unique=True)
+    await db.holidays.create_index([("company_id", 1), ("date", 1)])
+    await db.leave_adjustments_log.create_index([("company_id", 1), ("employee_id", 1)])
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
@@ -447,3 +452,9 @@ async def seed_demo_data() -> None:
     inserted = await seed_kb_articles(db)
     if inserted:
         log.info("Seeded %d knowledge base articles", inserted)
+
+    # 10. Seed leave types + India 2026 holidays for ACME (idempotent)
+    from leave_seed import seed_leave_types_and_holidays
+    lt, h = await seed_leave_types_and_holidays(db, company_id)
+    if lt or h:
+        log.info("Seeded %d leave types + %d holidays for company=%s", lt, h, company_id)

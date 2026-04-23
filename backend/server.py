@@ -31,6 +31,10 @@ from routers.documents_routes import router as documents_router
 from routers.onboarding_routes import router as onboarding_router
 from routers.offboarding_routes import router as offboarding_router
 from routers.kb_routes import router as kb_router
+from routers.leave_admin_routes import (
+    router as leave_admin_router, public as leave_types_router,
+    holidays_router, balances_router as leave_balances_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -81,6 +85,10 @@ app.include_router(documents_router)
 app.include_router(onboarding_router)
 app.include_router(offboarding_router)
 app.include_router(kb_router)
+app.include_router(leave_admin_router)
+app.include_router(leave_types_router)
+app.include_router(holidays_router)
+app.include_router(leave_balances_router)
 
 app.add_middleware(
     CORSMiddleware,
