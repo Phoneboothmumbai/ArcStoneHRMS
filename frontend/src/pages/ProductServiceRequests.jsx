@@ -12,7 +12,13 @@ import { Badge } from "../components/ui/badge";
 import { Plus } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 
-const blank = { category: "product", title: "", description: "", quantity: 1, estimated_cost: 0, route_to: "main_branch", vendor_id: "", urgency: "medium" };
+const blank = { category: "product", item_category: "", title: "", description: "", quantity: 1, estimated_cost: 0, route_to: "main_branch", vendor_id: "", urgency: "medium" };
+
+const COMMON_ITEM_CATEGORIES = [
+  "computer", "laptop", "phone", "monitor", "peripherals",
+  "stationery", "furniture", "software_license", "training",
+  "travel", "office_supplies", "other",
+];
 
 export default function ProductServiceRequests() {
   const [rows, setRows] = useState([]);
@@ -79,6 +85,16 @@ export default function ProductServiceRequests() {
                   </div>
                 </div>
                 <div><Label>Title</Label><Input className="mt-2" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ergonomic chair" data-testid="req-title" /></div>
+                <div>
+                  <Label>Item type <span className="text-zinc-400 font-normal">(drives the approval chain)</span></Label>
+                  <Input className="mt-2" list="item-cat-list" placeholder="e.g. computer, stationery, furniture"
+                    value={form.item_category}
+                    onChange={(e) => setForm({ ...form, item_category: e.target.value.toLowerCase() })}
+                    data-testid="req-item-cat" />
+                  <datalist id="item-cat-list">
+                    {COMMON_ITEM_CATEGORIES.map((c) => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
                 <div><Label>Description</Label><Textarea className="mt-2" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="req-desc" /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Quantity</Label><Input className="mt-2" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value || 1) })} data-testid="req-qty" /></div>
@@ -119,6 +135,7 @@ export default function ProductServiceRequests() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Item type</TableHead>
               <TableHead>Requester</TableHead>
               <TableHead>Route</TableHead>
               <TableHead>Urgency</TableHead>
@@ -133,6 +150,7 @@ export default function ProductServiceRequests() {
                   <div className="text-xs text-zinc-500 truncate max-w-xs">{r.description}</div>
                 </TableCell>
                 <TableCell><Badge variant="outline" className="uppercase text-[10px]">{r.category}</Badge></TableCell>
+                <TableCell className="text-zinc-600 text-sm">{r.item_category || "—"}</TableCell>
                 <TableCell className="text-zinc-600 text-sm">{r.employee_name}</TableCell>
                 <TableCell className="text-zinc-600 text-sm">{r.route_to.replace("_", " ")}</TableCell>
                 <TableCell><UrgencyPill u={r.urgency} /></TableCell>

@@ -172,8 +172,9 @@ def test_employees_filter_search_aisha():
 def test_leave_approval_end_to_end():
     emp_tok, emp_user = _login(*CREDS["employee"])
     # Create leave
+    # Use 'earned' leave type which has no seeded workflow => fallback manager-walk-up (mgr + HR)
     r = requests.post(f"{API}/leave", headers=_h(emp_tok), json={
-        "leave_type": "casual", "start_date": "2026-02-01",
+        "leave_type": "earned", "start_date": "2026-02-01",
         "end_date": "2026-02-02", "reason": "TEST_E2E personal work"
     }, timeout=15)
     assert r.status_code == 200, r.text

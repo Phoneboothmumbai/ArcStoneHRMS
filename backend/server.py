@@ -23,6 +23,7 @@ from routers.leave_routes import router as leave_router
 from routers.attendance_routes import router as attendance_router
 from routers.requests_routes import router as requests_router, vendors_router
 from routers.dashboard_routes import router as dashboard_router
+from routers.workflows_routes import router as workflows_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -65,6 +66,7 @@ app.include_router(attendance_router)
 app.include_router(requests_router)
 app.include_router(vendors_router)
 app.include_router(dashboard_router)
+app.include_router(workflows_router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
-  PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck,
+  PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
 } from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";

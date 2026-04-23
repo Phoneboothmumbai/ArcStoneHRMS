@@ -51,6 +51,7 @@ async def ensure_indexes() -> None:
     await db.attendance.create_index([("company_id", 1), ("employee_id", 1), ("date", 1)])
     await db.product_service_requests.create_index("company_id")
     await db.vendors.create_index("company_id")
+    await db.approval_workflows.create_index([("company_id", 1), ("request_type", 1), ("is_active", 1)])
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.login_attempts.create_index("identifier")
 
@@ -284,5 +285,88 @@ async def seed_demo_data() -> None:
             "phone": "+91-9000000000", "country_id": india["id"], "status": "active",
             "created_at": now_iso(), "updated_at": now_iso(),
         })
+
+    # 6. Sample configurable approval workflows
+    async def _ensure_wf(name, doc):
+        if await db.approval_workflows.find_one({"company_id": company_id, "name": name}):
+            return
+        full = {**doc, "id": uid(), "company_id": company_id, "name": name,
+                "created_at": now_iso(), "updated_at": now_iso()}
+        await db.approval_workflows.insert_one(full)
+
+    def _s(order, resolver, label, role=None, user_id=None, condition_min_cost=None):
+        return {"order": order, "resolver": resolver, "label": label,
+                "role": role, "user_id": user_id, "user_name": None,
+                "condition_min_cost": condition_min_cost}
+
+    # Product/Service workflows
+    await _ensure_wf("Computer purchase — 5 levels", {
+        "request_type": "product_service",
+        "match_item_category": "computer",
+        "match_leave_type": None,
+        "match_min_cost": None, "match_max_cost": None,
+        "match_min_days": None, "match_max_days": None,
+        "match_branch_id": None, "priority": 100, "is_active": True,
+        "steps": [
+            _s(1, "manager", "Direct Manager"),
+            _s(2, "department_head", "Department Head"),
+            _s(3, "branch_manager", "Branch Manager"),
+            _s(4, "role", "Country Head (IT)", role="country_head"),
+            _s(5, "company_admin", "HR / Finance Sign-off"),
+        ],
+    })
+
+    await _ensure_wf("Stationery — 2 levels", {
+        "request_type": "product_service",
+        "match_item_category": "stationery",
+        "match_leave_type": None,
+        "match_min_cost": None, "match_max_cost": None,
+        "match_min_days": None, "match_max_days": None,
+        "match_branch_id": None, "priority": 100, "is_active": True,
+        "steps": [
+            _s(1, "manager", "Direct Manager"),
+            _s(2, "company_admin", "Admin / Ops"),
+        ],
+    })
+
+    await _ensure_wf("High-value service >$5k — 4 levels", {
+        "request_type": "product_service",
+        "match_item_category": None,
+        "match_leave_type": None,
+        "match_min_cost": 5000, "match_max_cost": None,
+        "match_min_days": None, "match_max_days": None,
+        "match_branch_id": None, "priority": 60, "is_active": True,
+        "steps": [
+            _s(1, "manager", "Direct Manager"),
+            _s(2, "department_head", "Department Head"),
+            _s(3, "branch_manager", "Branch Manager"),
+            _s(4, "company_admin", "Finance Sign-off"),
+        ],
+    })
+
+    # Leave workflows
+    await _ensure_wf("Casual leave ≤3d — manager only", {
+        "request_type": "leave",
+        "match_item_category": None,
+        "match_leave_type": "casual",
+        "match_min_cost": None, "match_max_cost": None,
+        "match_min_days": None, "match_max_days": 3,
+        "match_branch_id": None, "priority": 100, "is_active": True,
+        "steps": [_s(1, "manager", "Direct Manager")],
+    })
+
+    await _ensure_wf("Unpaid leave — 3 levels", {
+        "request_type": "leave",
+        "match_item_category": None,
+        "match_leave_type": "unpaid",
+        "match_min_cost": None, "match_max_cost": None,
+        "match_min_days": None, "match_max_days": None,
+        "match_branch_id": None, "priority": 100, "is_active": True,
+        "steps": [
+            _s(1, "manager", "Direct Manager"),
+            _s(2, "department_head", "Department Head"),
+            _s(3, "company_admin", "HR Admin"),
+        ],
+    })
 
     log.info("Seed completed. Company=%s employees=%s", company_id, count)

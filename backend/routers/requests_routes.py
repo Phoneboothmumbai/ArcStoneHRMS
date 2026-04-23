@@ -19,7 +19,9 @@ async def create_request(body: PSRCreate, user=Depends(get_current_user)):
     psr_id = uid()
     doc = {
         "id": psr_id, "company_id": emp["company_id"], "employee_id": emp["id"],
-        "employee_name": emp["name"], "category": body.category, "title": body.title,
+        "employee_name": emp["name"], "category": body.category,
+        "item_category": (body.item_category or "").strip().lower() or None,
+        "title": body.title,
         "description": body.description, "quantity": body.quantity,
         "estimated_cost": body.estimated_cost, "route_to": body.route_to,
         "vendor_id": body.vendor_id, "urgency": body.urgency, "status": "pending",
@@ -30,9 +32,14 @@ async def create_request(body: PSRCreate, user=Depends(get_current_user)):
     ap = await create_approval_request(
         db, company_id=emp["company_id"], request_type="product_service",
         requester_user_id=user["id"], requester_name=emp["name"],
-        title=f"{body.category.capitalize()}: {body.title}",
+        title=f"{(body.item_category or body.category).title()}: {body.title}",
         details=body.model_dump(),
         linked_id=psr_id, requester_employee_id=emp["id"],
+        context={
+            "item_category": (body.item_category or "").strip().lower() or None,
+            "cost": body.estimated_cost,
+            "branch_id": emp.get("branch_id"),
+        },
     )
     await db.product_service_requests.update_one({"id": psr_id}, {"$set": {"approval_request_id": ap["id"]}})
     doc["approval_request_id"] = ap["id"]

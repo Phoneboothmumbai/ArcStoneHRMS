@@ -1,9 +1,19 @@
 """Leave management."""
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from auth import get_current_user
 from db import get_db
 from models import LeaveCreate, now_iso, uid
 from routers.approvals_routes import create_approval_request
+
+
+def _days_between(start: str, end: str) -> int:
+    try:
+        s = date.fromisoformat(start[:10])
+        e = date.fromisoformat(end[:10])
+        return max(1, (e - s).days + 1)
+    except Exception:
+        return 1
 
 router = APIRouter(prefix="/api/leave", tags=["leave"])
 
@@ -26,12 +36,14 @@ async def create_leave(body: LeaveCreate, user=Depends(get_current_user)):
     }
     await db.leave_requests.insert_one(leave_doc)
     leave_doc.pop("_id", None)
+    days = _days_between(body.start_date, body.end_date)
     ap = await create_approval_request(
         db, company_id=emp["company_id"], request_type="leave",
         requester_user_id=user["id"], requester_name=emp["name"],
-        title=f"Leave: {body.leave_type} ({body.start_date} → {body.end_date})",
-        details={"leave_type": body.leave_type, "start": body.start_date, "end": body.end_date, "reason": body.reason},
+        title=f"Leave: {body.leave_type} ({body.start_date} → {body.end_date}, {days}d)",
+        details={"leave_type": body.leave_type, "start": body.start_date, "end": body.end_date, "days": days, "reason": body.reason},
         linked_id=leave_id, requester_employee_id=emp["id"],
+        context={"leave_type": body.leave_type, "days": days, "branch_id": emp.get("branch_id")},
     )
     await db.leave_requests.update_one({"id": leave_id}, {"$set": {"approval_request_id": ap["id"]}})
     leave_doc["approval_request_id"] = ap["id"]

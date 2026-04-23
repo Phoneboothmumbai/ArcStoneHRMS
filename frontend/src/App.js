@@ -18,6 +18,7 @@ import ProductServiceRequests from "./pages/ProductServiceRequests";
 import MySubmissions from "./pages/MySubmissions";
 import Companies from "./pages/Companies";
 import Resellers from "./pages/Resellers";
+import Workflows from "./pages/Workflows";
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -57,6 +58,7 @@ function App() {
           <Route path="/app/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
           <Route path="/app/requests" element={<ProtectedRoute><ProductServiceRequests /></ProtectedRoute>} />
           <Route path="/app/my-submissions" element={<ProtectedRoute><MySubmissions /></ProtectedRoute>} />
+          <Route path="/app/workflows" element={<ProtectedRoute roles={["super_admin", "company_admin", "country_head", "region_head"]}><Workflows /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

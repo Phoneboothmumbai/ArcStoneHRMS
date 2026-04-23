@@ -247,6 +247,7 @@ class ProductServiceRequest(BaseDoc):
     employee_id: str
     employee_name: str
     category: Literal["product", "service"]
+    item_category: Optional[str] = None  # e.g., "computer", "stationery", "furniture", "software", "travel"
     title: str
     description: str
     quantity: int = 1
@@ -260,6 +261,7 @@ class ProductServiceRequest(BaseDoc):
 
 class PSRCreate(BaseModel):
     category: Literal["product", "service"]
+    item_category: Optional[str] = None
     title: str
     description: str
     quantity: int = 1
@@ -286,3 +288,49 @@ class VendorCreate(BaseModel):
     contact_email: Optional[EmailStr] = None
     phone: Optional[str] = None
     country_id: Optional[str] = None
+
+
+# ---------- Configurable Approval Workflows ----------
+StepResolver = Literal["manager", "department_head", "branch_manager", "company_admin", "role", "user"]
+
+
+class ApprovalWorkflowStep(BaseModel):
+    order: int
+    resolver: StepResolver
+    label: str  # friendly name shown on the approval timeline, e.g. "IT Head" or "Finance Sign-off"
+    role: Optional[Role] = None       # used when resolver == "role"
+    user_id: Optional[str] = None     # used when resolver == "user"
+    user_name: Optional[str] = None   # cached for UI display
+    condition_min_cost: Optional[float] = None  # skip this step if cost below threshold
+
+
+class ApprovalWorkflow(BaseDoc):
+    company_id: str
+    name: str                                   # e.g. "Computer purchase — 5 levels"
+    request_type: RequestType                   # leave | product_service | expense
+    # Match criteria — null means wildcard for that dimension
+    match_item_category: Optional[str] = None   # for product_service: "computer", "stationery"...
+    match_leave_type: Optional[str] = None      # for leave: "casual", "sick", "unpaid"...
+    match_min_cost: Optional[float] = None
+    match_max_cost: Optional[float] = None
+    match_min_days: Optional[int] = None        # for leave
+    match_max_days: Optional[int] = None        # for leave
+    match_branch_id: Optional[str] = None
+    priority: int = 10                          # higher wins ties
+    is_active: bool = True
+    steps: List[ApprovalWorkflowStep] = Field(default_factory=list)
+
+
+class ApprovalWorkflowCreate(BaseModel):
+    name: str
+    request_type: RequestType
+    match_item_category: Optional[str] = None
+    match_leave_type: Optional[str] = None
+    match_min_cost: Optional[float] = None
+    match_max_cost: Optional[float] = None
+    match_min_days: Optional[int] = None
+    match_max_days: Optional[int] = None
+    match_branch_id: Optional[str] = None
+    priority: int = 10
+    is_active: bool = True
+    steps: List[ApprovalWorkflowStep]
