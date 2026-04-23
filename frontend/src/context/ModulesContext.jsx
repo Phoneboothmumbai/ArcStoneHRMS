@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 const ModulesContext = createContext({ active: [], loading: true });
 
 export function ModulesProvider({ children }) {
+  const { user } = useAuth();
   const [active, setActive] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +18,17 @@ export function ModulesProvider({ children }) {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Refetch whenever the authenticated user changes (login, logout, tenant switch).
+  // This fixes the race where ModulesProvider mounts before AuthContext hydrates,
+  // which would otherwise hide every module-gated sidebar entry until a manual reload.
+  useEffect(() => {
+    if (user && user !== false) {
+      refresh();
+    } else if (user === false) {
+      setActive([]);
+      setLoading(false);
+    }
+  }, [user, refresh]);
 
   return (
     <ModulesContext.Provider value={{ active, loading, refresh }}>

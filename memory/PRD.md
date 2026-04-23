@@ -3,84 +3,72 @@
 ## Original problem statement
 > Build an HRMS SaaS with a reseller layer in between. Scale: 100s of companies, 1000s of employees. Need mobile apps for employees, employee login, HR admin login. Multi-level approval system. Companies with offices in multiple countries, regions, locations. Different employee types (WFH, WFO, field, hybrid). Employees can request products/services. Branches have hierarchy (manager, sub manager, assistant manager). Employees can request products/services to main branch or vendors.
 
-## Architecture (see `/app/ARCHITECTURE.md` for full blueprint)
+## Architecture
 - **4-tier tenancy**: Platform → Reseller → Company (Tenant) → Employees
-- **Multi-tenancy model**: shared DB, shared schema, `company_id` discriminator (scales to 100s of tenants cost-effectively)
-- **Backend**: FastAPI + MongoDB (motor), JWT auth (cookies + Bearer), role-based access control
-- **Frontend**: React + Tailwind + shadcn/ui + phosphor-icons, Swiss High-Contrast design (Chivo + IBM Plex Sans)
-- **Org hierarchy**: Region → Country → Branch → Department → Employee (every layer self-configurable)
-- **Approval engine**: Generic chain, reusable across leave / requests / expenses, walks manager hierarchy
+- **Multi-tenancy**: shared DB, shared schema, `company_id` discriminator
+- **Backend**: FastAPI + MongoDB (motor), JWT auth, RBAC, module-gating via `requires_module`
+- **Frontend**: React + Tailwind + shadcn/ui + phosphor-icons
+- **Approval engine**: Generic chain, walks manager hierarchy with configurable per-type workflows
 
 ## User personas
-1. **Super Admin** (platform owner) — resellers, companies, platform-wide metrics
-2. **Reseller** (partner) — white-label, own customers, commission tracking
-3. **Company Admin / HR Admin** — employees, branches, approvals, analytics
-4. **Branch Manager / Sub / Assistant Manager** — team roster, approval queue
-5. **Employee** — self-service: attendance, leave, product/service requests
+1. **Super Admin** — resellers, companies, platform metrics
+2. **Reseller** — white-label, own customers, commission
+3. **Company Admin / HR Admin** — employees, branches, approvals
+4. **Branch Manager / Sub / Assistant** — team roster, approval queue
+5. **Employee** — self-service: attendance, leave, requests, profile
 
-## Core requirements (static)
-- Multi-country / multi-region / multi-branch org support
-- Employee types: WFO, WFH, Field, Hybrid
-- Multi-level approval engine (sequential chain walk-up)
-- Product/service request routing (main branch or vendor)
-- Role-based dashboards (5 personas)
-- Tenant isolation at API layer via `company_id` JWT claim + row-level query filter
+## What's been implemented
 
-## What's been implemented (2026-02-23)
-- **Phase 1D complete (Feb 23)** — Notifications Engine. Event-driven multi-channel notification system with 21 named events (leave.submitted, approval.pending/approved/rejected, regularization.submitted/decided, overtime.submitted/decided, timesheet.submitted/decided, onboarding.task_assigned, offboarding.initiated, profile.incomplete, probation.due, birthday.today, work_anniversary.today, module.activated, kb.article). In-app channel fully operational with per-user notification inbox (`/app/notifications`), 60-second polling bell in header with unread badge counter, mark-as-read + mark-all-read, deep-linking to relevant pages. Preferences page (`/app/notification-prefs`) — per-channel toggles (in_app, email, push "coming soon"), digest frequency (realtime/daily/weekly/off), mute-events array, idempotency via dedup_key. Email channel scaffolded via Resend (reads `RESEND_API_KEY` env; degrades gracefully when unset without breaking in-app). Event hooks wired into approvals create + decide (notifies first/next approver on creation, notifies requester on final decision), onboarding start (notifies new hire), offboarding start (notifies all company admins). Cross-tenant safe. 13/13 pytest pass.
-- **Phase 1C complete (Feb 23)** — Attendance deepening. 5 shifts, geo-fence work sites, shift assignments, regularization, overtime, timesheets, monthly register MIS. 17/17 pytest.
-- **Phase 1B complete (Feb 23)** — Leave deepening. 9 India leave types with policies, balance ledger, 22 India 2026 holidays, team calendar, admin UI. 18/18 pytest.
-- **Phase 1M complete (Feb 23)** — Self-Service Foundations. In-app Knowledge Base with 9 categories, markdown article rendering (react-markdown + @tailwindcss/typography), full-text search, category filter, and deep-linkable article URLs at /app/help/:slug. Public read API (auth-only); Super Admin CRUD under /api/kb/admin/*. 8 seed articles. Contextual `<HelpHint>` tooltip component deployed on India statutory fields (PAN/Aadhaar, UAN/PF/ESIC/PT, IFSC) with deep links to KB article. Universal Help nav item in every role's sidebar + floating Help link in header. Admin editor UI at /app/kb-admin.
-- **Phase 1A complete (Feb 23)** — Employee Lifecycle Core (India-first). Rich employee profile with 10 sections: Personal (gender/blood group/languages/category), Contact (current + permanent address with 36 Indian states), KYC (PAN/Aadhaar-last4/passport/DL/voter), Statutory India (UAN/PF/ESIC/PT state/NPS/LWF opt-in flags), Bank (IFSC/account type), Employment Details (grade/band/employment type/probation/notice period), Emergency Contacts, Family & Nominees (with share %), Education, Prior Employment. Profile completeness scoring (0-100%). Per-section access control: HR roles edit everything, employees self-edit Personal/Contact/Family/Education/Prior Employment/Emergency (KYC/Statutory/Bank/Employment HR-only). Document vault (base64 storage, 2 MB/file, 12 doc categories: identity/education/offer_letter/relieving_letter/PF/tax/insurance/medical/...). Onboarding module with template CRUD + instance workflow: seeded default "Standard India Onboarding" template (12 tasks across 5 stages — pre_joining/day_1/week_1/month_1/probation); auto-computes due_date per task from DOJ; auto-completes onboarding when all tasks done; flips employee.status onboarding→active. Offboarding with 8 default clearance items across 6 departments (IT/admin/finance/HR/manager/security); exit interview (overall_rating/reason/what_worked/what_can_improve/would_recommend/would_rejoin); complete-exit action blocked until all clearance cleared, then issues relieving+experience letters, marks F&F settled, terminates employee, deactivates user login. Onboarding+Offboarding gated behind `onboarding` module (returns 402 when not entitled). 19/19 new pytest cases passing.
-- **Phase 0 complete (Feb 23)** — Module entitlement framework with 16 modules + 3 bundles (HR Essentials, People Ops Full, Enterprise Complete). Two-tier pricing (retail + wholesale) stored separately with role-gated visibility: super_admin sees both, reseller sees wholesale, company_admin/employee sees NONE. Module gate `requires_module()` returns HTTP 402 + clean upgrade payload when company lacks entitlement. Trial mode with auto-expiry. Bundle activation with proportional price distribution. Module activation requests flow from company_admin → reseller → super_admin. Full audit log of every enable/disable/request event.
-- **Tenant isolation hardened (Feb 23)** — TenantDB query wrapper auto-injects `company_id` on every read/write; `requires_module()` + `require_roles()` dependencies; integrity scanner endpoint verifies no orphan documents per company. Fourth layer defense-in-depth.
-- **Multi-currency support (Feb 23)** — Price model (`{amount, currency}`) supports INR/USD/EUR/GBP/AED/SGD from day one.
-- **Data residency (Feb 23)** — Company model now has `region` field (in-blr, in-bom, eu-fra, etc.) for DPDP compliance. Migration-ready: region-aware Mongo URI switchable via env.
-- **Tenant export (Feb 23)** — `POST /api/tenant/{id}/export` returns a zip containing every tenant-scoped collection as JSON (password_hash stripped). GDPR + DPDP right-to-portability compliant.
-- FastAPI backend with 18 routers (auth, resellers, companies, org, employees, approvals, leave, attendance, requests, vendors, dashboard, workflows, modules, tenant, profile, documents, onboarding, offboarding)
-- 23 MongoDB collections with proper indexes (employee_profiles unique on employee_id; employee_documents+onboardings+offboardings compound on company_id)
-- Idempotent seed: 1 super admin + 1 reseller + 1 company (ACME, region=in-blr, INR) + 2 regions + 2 countries + 2 branches + 2 departments + 6 employees + 5 sample approval workflows + 3 seeded module entitlements (base_hrms, procurement, onboarding) + 1 default onboarding template (12 tasks)
-- Configurable approval engine with 5 sample workflows
-- Leave, Attendance, Product/Service Requests, Vendors, Org Tree, Employee Directory
-- Landing page, unified login, 5 persona dashboards, Workflow Builder UI, Approvals queue
-- Super Admin Modules page (toggle modules per company, bundles, audit log)
-- Company Admin Billing & Modules page (active modules, request activation, data export)
-- Employee Profile page (unified self-service + HR view with left-nav tabs & completeness bar)
-- Onboarding page (list + detail with stage-grouped task checklist + start-onboarding dialog)
-- Offboarding page (list + detail with clearance checklist + exit interview form + complete-exit action)
-- 80/80 backend pytest tests passing (61 Phase 0 + 19 Phase 1A), all frontend persona flows verified
+### Feb 24, 2026 — Phase 2A COMPLETE + regression hardening
+- **Phase 2A wired end-to-end**: Payroll India (salary components, structures, CTC assignment) backend + frontend now live.
+  - Backend: all 3 payroll routers (`salary-components`, `salary-structures`, `compensation`) gated behind `requires_module("payroll")` via `router.dependencies`.
+  - Frontend: `/app/payroll` route wired in `App.js`; "Payroll" sidebar entry (₹ CurrencyInr icon) added under `company_admin` nav with module-based filtering.
+  - Sidebar nav now supports optional `module` key — items filtered via `useHasModule` so disabled modules hide their links.
+  - ACME seeded with `payroll` module active (price_source=retail).
+- **India statutory math verified** (Phase 2A): PF 12% capped at ₹15k basic; ESIC 0.75%/3.25% if gross ≤ ₹21k; PT flat ₹200; Gratuity 4.81% of basic; TDS placeholder (Phase 2B).
+- **Critical bug fix — ModulesContext race**: `ModulesProvider` was fetching `/api/modules/mine` at mount (pre-login), hitting 401 and locking into `["base_hrms"]` fallback, which hid every module-gated nav item until a manual reload. Fixed by subscribing to `AuthContext` user state and refetching on user changes (login/logout/tenant switch).
+- **Critical bug fix — non-idempotent seed**: `_ensure_mod` bailed when a `company_modules` row existed even with `status=disabled`. Now flip-forwards to `active` when seed requests active.
+- **Leave-admin dup-code fix**: `POST /api/leave-admin/types` now reactivates soft-deleted rows with the same code instead of 500-ing on the unique index.
+- **Approval workflow matcher** aligned with Phase 1B leave types: seeded workflows now use code-based match keys (`cl`, `lop`) instead of legacy names (`casual`, `unpaid`). Existing rows migrated inline.
+- **Test suite**: 144/144 backend pytest passing (up from 134/144). Legacy tests in `test_hrms_backend.py` and `test_workflows.py` migrated to the new `leave_type_id` v2 API; added autouse cleanup fixtures to prevent CL balance exhaustion across modules; dates moved to relative `_future_weekday(offset)` so notice-days policy stops blocking.
+
+### Feb 23, 2026 — Earlier phases
+- **Phase 1D complete** — Notifications Engine. In-app bell (60-s polling, unread badge), preferences page (channel toggles, digest cadence, mute-events, dedup), event hooks on approvals + onboarding + offboarding, Resend email scaffolded. 13/13 pytest.
+- **Phase 1C complete** — Attendance deepening. Shifts, geo-fence sites, regularization, overtime, timesheets, monthly register. 17/17 pytest.
+- **Phase 1B complete** — Leave deepening. 9 India leave types, per-grade policies, balance ledger, 22 India 2026 holidays, team calendar, admin UI, gender filters. 18/18 pytest.
+- **Phase 1M complete** — Self-Service Foundations. Knowledge Base with markdown articles, search, categories, `<HelpHint>` tooltips on statutory fields, admin CRUD. 8 seed articles.
+- **Phase 1A complete** — Employee Lifecycle Core. Rich profile (10 sections), document vault (12 categories), onboarding templates + instances (12 tasks / 5 stages), offboarding with clearance + exit interview + auto-generated letters. 19/19 pytest.
+- **Phase 0 complete** — Module entitlement framework: 16 modules, 3 bundles, two-tier pricing (retail/wholesale) with role-gated visibility, trial auto-expiry, 402 Payment Required on gated routes, activation request flow, audit log. 61/61 pytest.
+- **Tenant isolation** — TenantDB query wrapper auto-injects `company_id`; `requires_module` + `require_roles` deps; integrity scanner; defence-in-depth.
+- **Multi-currency & data residency** — Price `{amount, currency}` model; Company `region` field for DPDP compliance; tenant export → zip of all scoped collections.
 
 ## Backlog — prioritized
 
-### P0 (next up — HRMS completion phases, in order)
-- **Phase 1B** Leave deepening: leave types (CL/SL/EL/comp-off/maternity/paternity), per-grade policies, balance + accrual engine, holiday calendar (country + region specific), encashment
-- **Phase 1C** Attendance deepening: shifts & rosters, regularization, overtime tracking, WFH/WFO/Field policy per employee, geo-fencing for field staff, policies (late mark, half-day, grace period)
-- **Phase 1D** Notifications Engine: unified email (Resend) + in-app bell + per-event templates
-- **Phase 1E** Policy & Settings: company settings, policy library, pay cycle, fiscal year
-- **Phase 1F** Documents & Letters: letter templates (offer, experience, relieving, NOC) with merge fields, e-sign stub
-- **Phase 1G** Asset Management: laptop/device register, assign/return flow, depreciation (migrate document vault to S3 here)
-- **Phase 1H** Expense Claims: submit with receipts, approve, reimburse, category policy
-- **Phase 1I** Helpdesk / Grievance: ticket categories, SLA, escalations
-- **Phase 1J** Performance: Goals/OKRs, review cycles, 360 feedback, PIP
-- **Phase 1K** Recruitment / ATS: job postings, candidate pipeline, interviews, offer letters
-- **Phase 1L** Reports & Analytics: headcount, attrition, DEI, attendance, leave, custom builder
-- React Native (Expo) mobile app for Employee + Manager (same API surface)
-- White-label per reseller: logo, brand color, custom domain mapping
+### P0 (next up)
+- **Phase 2B — Monthly payroll run engine**: compute PF/ESIC/PT/TDS/LOP per month per employee, payslip PDF, lock/unlock cycle, bulk actions.
+- **Phase 2C — Statutory forms & bank files**: Form 16, Form 24Q, 3A, 6A, NEFT bank advice CSV, investment declarations portal.
+- **Phase 2D — F&F settlement engine**: loans, reimbursement-to-payroll pipeline, separation payout.
+- **Phase 1E** — Policy & Settings: company settings, fiscal year, policy library (force-acknowledge).
+- **Phase 1F** — Letters & e-Sign: offer/experience/relieving templates with merge fields.
+- **Phase 1G** — Asset Management + migrate document vault from base64 to S3.
+- **Phase 1H** — Expense + Reimbursement + Travel.
+- **React Native mobile app** — Employee + Manager.
+- **White-label per reseller** — logo, brand color, custom domain.
 
 ### P1
-- Procurement / Vendor Marketplace (Phase 2 — deferred to after HRMS phases): Vendor portal, RFQ sealed-bid, quote comparison, PO via approval engine
-- Stripe subscription billing per company + reseller commission payouts (Stripe Connect)
-- Advanced approval engine: parallel chains, conditional routing, OOO delegation, auto-escalation
+- **Phase 1I** — Helpdesk + POSH compliance.
+- **Phase 1J** — Performance (OKR, PIP, 360, 9-box).
+- **Phase 1K** — Recruitment / ATS.
+- **Phase 1L** — Reports & MIS (custom builder, attrition analytics).
+- Procurement / Vendor Marketplace Phase 2 — RFQ sealed-bid, quote comparison, PO chain.
+- Stripe subscription billing + reseller commission payouts.
+- Biometric Attendance Integration (user deferred).
 
 ### P2
-- SSO (SAML / OIDC) for enterprise buyers
-- Audit log (append-only) + exports
-- Integrations: Slack, Teams, Gmail, Google Calendar
-- SOC 2 / ISO 27001 certification track
-- Compliance packs per country (labor law, holidays, payroll rules beyond India)
+- SSO (SAML / OIDC), audit log exports, Slack/Teams/GCal integrations, SOC 2 track, per-country compliance packs.
 
 ## Next tasks
-1. **Phase 1B — Leave deepening** (leave types, policies, balance/accrual, holiday calendar)
-2. **Phase 1C — Attendance deepening** (shifts, rosters, regularization, overtime, geo-fencing)
-3. **Phase 1D — Notifications Engine** (Resend email + in-app bell, unlocks reminders everywhere)
-4. Continue through Phases 1E–1L as per the ordered roadmap above
+1. **Phase 2B — Monthly payroll run engine** (the big payroll unlock)
+2. **Phase 1E — Policy & Settings** (smaller ship, clears settings debt)
+3. **Phase 1F — Letters & e-Sign**
+4. Continue through remaining P0 items in order.

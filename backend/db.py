@@ -419,6 +419,13 @@ async def seed_demo_data() -> None:
     async def _ensure_mod(module_id, status="active", amount=None, price_source="retail"):
         existing = await db.company_modules.find_one({"company_id": company_id, "module_id": module_id})
         if existing:
+            # Flip-forward: if the caller requests "active" but existing is disabled/suspended,
+            # reactivate it (idempotent seed should never leave a module in a stale disabled state).
+            if status == "active" and existing.get("status") != "active":
+                await db.company_modules.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"status": "active", "activated_at": now_iso(), "updated_at": now_iso()}},
+                )
             return
         from modules_catalog import MODULES
         mod = MODULES.get(module_id)
