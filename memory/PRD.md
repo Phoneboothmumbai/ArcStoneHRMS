@@ -27,13 +27,14 @@
 - Tenant isolation at API layer via `company_id` JWT claim + row-level query filter
 
 ## What's been implemented (2026-02-23)
-- FastAPI backend with 11 routers (auth, resellers, companies, org, employees, approvals, leave, attendance, requests, vendors, dashboard)
-- 15 MongoDB collections with proper indexes (including compound `{company_id, ...}` indexes)
-- Idempotent seed: 1 super admin + 1 reseller (Arlo Partners) + 1 company (ACME Global) + 2 regions + 2 countries + 2 branches + 2 departments + 6 employees (including manager + employee with login)
-- Generic multi-level approval engine walking the manager hierarchy (tested end-to-end: employee → manager → HR admin with approve/reject paths)
-- Leave workflow (5 types, calendar range, routed through approval engine)
+- FastAPI backend with 12 routers (auth, resellers, companies, org, employees, approvals, leave, attendance, requests, vendors, dashboard, workflows)
+- 16 MongoDB collections with proper indexes (including compound `{company_id, request_type, is_active}` for workflow lookup)
+- Idempotent seed: 1 super admin + 1 reseller (Arlo Partners) + 1 company (ACME Global) + 2 regions + 2 countries + 2 branches + 2 departments + 6 employees + 5 sample approval workflows
+- **Configurable approval engine (Feb 23)** — per-company, per-request-type, per-category workflows with cost/days/branch matchers, step resolvers (manager, department_head, branch_manager, company_admin, role, user), conditional cost thresholds, priority scoring, graceful fallback to manager walk-up when no workflow matches
+- Generic multi-level approval engine walking the manager hierarchy (fallback path)
+- Leave workflow (5 types, calendar range, days computed, routed through configurable approval engine)
 - Attendance with check-in/check-out, hours calculation, per-day enforcement, WFO/WFH/field types
-- Product/service request module with vendor routing and approval chain
+- Product/service request module with `item_category` (computer, stationery, furniture, etc.), vendor routing, configurable approval chain
 - Landing page (marketing + reseller program CTA + architecture section)
 - Unified login with 5 one-click demo persona shortcuts
 - Role-based redirect post-login
@@ -42,8 +43,9 @@
 - Organization hierarchy tree (collapsible, per-level metadata)
 - Approvals queue (inbox + submitted + all-involved tabs, decision dialogs with comment)
 - My submissions page with step-by-step chain progress visualization
+- **Workflow Builder UI (Feb 23)** — HR admin creates/edits/toggles/deletes workflows; drag-to-reorder steps; match rules for item category, leave type, cost/days range, branch scope
 - Company/reseller onboarding flows for super admin + reseller
-- 25/25 backend pytest tests passing, all frontend persona flows verified
+- 44/44 backend pytest tests passing (25 MVP + 19 workflow engine), all frontend persona flows verified
 
 ## Backlog — prioritized
 
