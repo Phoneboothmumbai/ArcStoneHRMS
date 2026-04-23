@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
-  Stack, Receipt,
+  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle,
 } from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
@@ -23,6 +23,8 @@ const NAV_BY_ROLE = {
     { to: "/app/hr", label: "Overview", icon: HouseLine },
     { to: "/app/employees", label: "Employees", icon: UsersThree },
     { to: "/app/org-tree", label: "Organization", icon: TreeStructure },
+    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus },
+    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus },
     { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
     { to: "/app/workflows", label: "Workflows", icon: FlowArrow },
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
@@ -34,10 +36,13 @@ const NAV_BY_ROLE = {
     { to: "/app/manager", label: "My Team", icon: HouseLine },
     { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
     { to: "/app/employees", label: "Directory", icon: UsersThree },
+    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus },
+    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
   ],
   employee: [
     { to: "/app/employee", label: "My Workspace", icon: HouseLine },
+    { to: "/app/me", label: "My Profile", icon: UserCircle },
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },

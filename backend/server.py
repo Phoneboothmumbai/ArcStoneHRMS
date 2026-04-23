@@ -26,6 +26,10 @@ from routers.dashboard_routes import router as dashboard_router
 from routers.workflows_routes import router as workflows_router
 from routers.modules_routes import router as modules_router
 from routers.tenant_routes import router as tenant_router
+from routers.profile_routes import router as profile_router
+from routers.documents_routes import router as documents_router
+from routers.onboarding_routes import router as onboarding_router
+from routers.offboarding_routes import router as offboarding_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -71,6 +75,10 @@ app.include_router(dashboard_router)
 app.include_router(workflows_router)
 app.include_router(modules_router)
 app.include_router(tenant_router)
+app.include_router(profile_router)
+app.include_router(documents_router)
+app.include_router(onboarding_router)
+app.include_router(offboarding_router)
 
 app.add_middleware(
     CORSMiddleware,

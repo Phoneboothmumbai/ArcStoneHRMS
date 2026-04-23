@@ -58,6 +58,16 @@ async def ensure_indexes() -> None:
     await db.module_activation_requests.create_index([("company_id", 1), ("status", 1)])
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.login_attempts.create_index("identifier")
+    # Phase 1A — Employee lifecycle
+    await db.employee_profiles.create_index("employee_id", unique=True)
+    await db.employee_profiles.create_index("company_id")
+    await db.employee_documents.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.employee_documents.create_index("category")
+    await db.onboarding_templates.create_index([("company_id", 1), ("is_default", 1)])
+    await db.onboardings.create_index([("company_id", 1), ("status", 1)])
+    await db.onboardings.create_index("employee_id")
+    await db.offboardings.create_index([("company_id", 1), ("status", 1)])
+    await db.offboardings.create_index("employee_id")
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
@@ -397,4 +407,33 @@ async def seed_demo_data() -> None:
 
     await _ensure_mod("base_hrms", status="active", price_source="included")
     await _ensure_mod("procurement", status="active")
+    await _ensure_mod("onboarding", status="active")
     log.info("Module entitlements seeded for company=%s", company_id)
+
+    # 8. Seed default onboarding template for ACME (idempotent)
+    existing_tpl = await db.onboarding_templates.find_one({"company_id": company_id, "is_default": True})
+    if not existing_tpl:
+        from models_profile import OnboardingTemplate, OnboardingTaskTemplate
+        default_tasks = [
+            OnboardingTaskTemplate(stage="pre_joining", title="Send offer letter & joining kit", assignee="hr", due_days_from_doj=-7),
+            OnboardingTaskTemplate(stage="pre_joining", title="Collect KYC documents (PAN, Aadhaar, Passport)", assignee="hr", due_days_from_doj=-3),
+            OnboardingTaskTemplate(stage="pre_joining", title="Provision laptop & accessories", assignee="it", due_days_from_doj=-1),
+            OnboardingTaskTemplate(stage="day_1", title="Welcome & office tour", assignee="hr", due_days_from_doj=0),
+            OnboardingTaskTemplate(stage="day_1", title="Create email & system accounts", assignee="it", due_days_from_doj=0),
+            OnboardingTaskTemplate(stage="day_1", title="Assign ID card & desk", assignee="admin", due_days_from_doj=0),
+            OnboardingTaskTemplate(stage="day_1", title="Submit statutory forms (PF, ESIC, Form 2)", assignee="hr", due_days_from_doj=1),
+            OnboardingTaskTemplate(stage="week_1", title="Meet direct team & manager 1:1", assignee="manager", due_days_from_doj=3),
+            OnboardingTaskTemplate(stage="week_1", title="Policy handbook & compliance training", assignee="hr", due_days_from_doj=5),
+            OnboardingTaskTemplate(stage="month_1", title="30-day check-in with HR", assignee="hr", due_days_from_doj=30),
+            OnboardingTaskTemplate(stage="month_1", title="First month goals finalized with manager", assignee="manager", due_days_from_doj=30),
+            OnboardingTaskTemplate(stage="probation", title="Probation review & confirmation", assignee="hr", due_days_from_doj=180),
+        ]
+        tpl = OnboardingTemplate(
+            company_id=company_id,
+            name="Standard India Onboarding",
+            description="Default onboarding template with India statutory compliance (PF, ESIC, Form 2).",
+            is_default=True,
+            tasks=default_tasks,
+        ).model_dump()
+        await db.onboarding_templates.insert_one(tpl)
+        log.info("Default onboarding template seeded for company=%s", company_id)

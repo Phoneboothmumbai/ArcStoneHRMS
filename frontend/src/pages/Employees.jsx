@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import AppShell, { SectionCard } from "../components/AppShell";
 import { api } from "../lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
@@ -55,10 +56,12 @@ export default function Employees() {
           </TableHeader>
           <TableBody>
             {rows.map((e) => (
-              <TableRow key={e.id} data-testid={`emp-row-${e.id}`}>
+              <TableRow key={e.id} data-testid={`emp-row-${e.id}`} className="hover:bg-zinc-50 cursor-pointer">
                 <TableCell>
-                  <div className="font-medium">{e.name}</div>
-                  <div className="text-xs text-zinc-500">{e.email}</div>
+                  <Link to={`/app/employees/${e.id}`} className="block" data-testid={`emp-profile-link-${e.id}`}>
+                    <div className="font-medium hover:underline">{e.name}</div>
+                    <div className="text-xs text-zinc-500">{e.email}</div>
+                  </Link>
                 </TableCell>
                 <TableCell className="text-zinc-700">{e.job_title}</TableCell>
                 <TableCell className="font-mono-alt text-xs">{e.employee_code}</TableCell>
