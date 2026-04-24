@@ -13,7 +13,22 @@
 
 ## What's been implemented
 
-### Feb 24, 2026 — HR Web UI + PDF generation batch (sales-demo ready 🚀)
+### Feb 24, 2026 — Module Switcher + Command Palette (⌘K) 🎛️
+**The sidebar reinvented for a multi-module world.** 170/170 backend tests still green.
+
+- **`/app/frontend/src/lib/moduleRegistry.js`** — single source of truth: 11 module definitions (8 active + 3 upgrade-only: Performance, ATS, Reports), each with id / label / icon / color / landing / roles / entitlement / items. Add a new module = one entry here and it auto-appears in switcher, palette, and URL-routing. Role workspaces for super_admin/reseller/employee/branch_manager kept separate (simpler flat sidebars).
+- **`<ModuleSwitcher>`** (top-left header, Notion / Linear style) — popover with colored chips, descriptions, "ACTIVE" badge on the current module, and a separated "⨯ UPGRADE TO UNLOCK" section showing locked modules with 🔒 and a one-click upsell toast that opens Billing & Modules.
+- **`<CmdK>`** (⌘K / Ctrl+K anywhere) — `cmdk`-based command palette searching: all navigable pages tagged by module, quick actions ("Apply for leave", "New payroll run", "Generate letter", "Compute F&F", "Publish a policy"), and lazy-loaded employee directory fuzzy search (HR/managers only). Also visible as a "Search…" button in the header.
+- **URL-aware sidebar**: `moduleFromPath()` detects which module a route belongs to → sidebar auto-renders that module's nav. Bookmarked links (`/app/payroll-runs`, `/app/letters`) automatically switch context.
+- **Breadcrumb header**: every page now shows `MODULE · Page title` in the top bar instead of just the role name. Sidebar also has a color-chip "Module" label right under the Arcstone brand mark.
+- **AppShell refactor**: replaced the 60-line `NAV_BY_ROLE` constant with 20 lines driven by the registry, preserving all existing data-testids and behavior.
+
+Verified via screenshot:
+- HR admin opens → People module default sidebar (7 items). Clicks switcher → Notion-style popover with 8 active + 3 locked modules. Clicks Payroll → sidebar collapses to 3 items (Compensation / Payroll Runs / F&F & Loans), URL auto-navigates to `/app/payroll-runs`, chip turns amber.
+- ⌘K → typed "letter" → instantly shows Letters page (Policies & Letters module tag) + Policies page + "Generate letter" quick action.
+- Employee login → flat 8-item sidebar (My Workspace / My Profile / Attendance / Leave / Expenses & Travel / Policies / Requests / My Submissions), NO module switcher shown (by design), ⌘K search is available.
+
+### Feb 24, 2026 — HR Web UI + PDF generation batch (earlier today)
 **All 154/154 backend + 16/16 new UI-backing tests passing.**
 
 - **PDF payslips + letters** via reportlab (`pdf_render.py`):

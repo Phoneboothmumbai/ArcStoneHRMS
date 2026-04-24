@@ -1,79 +1,44 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
-  HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
-  PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
-  Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen, CurrencyInr,
-  Calendar, Handshake, BookBookmark, FileText, Laptop, AirplaneTilt,
+  IdentificationCard, SignOut, Question, BookOpen,
 } from "@phosphor-icons/react";
 import NotificationsBell from "./NotificationsBell";
+import ModuleSwitcher from "./ModuleSwitcher";
+import CmdK from "./CmdK";
 import { useAuth } from "../context/AuthContext";
 import { useModules } from "../context/ModulesContext";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-
-const NAV_BY_ROLE = {
-  super_admin: [
-    { to: "/app/platform", label: "Platform", icon: HouseLine },
-    { to: "/app/resellers", label: "Resellers", icon: Storefront },
-    { to: "/app/companies", label: "Companies", icon: Buildings },
-    { to: "/app/modules", label: "Modules", icon: Stack },
-  ],
-  reseller: [
-    { to: "/app/reseller", label: "Overview", icon: HouseLine },
-    { to: "/app/companies", label: "My Companies", icon: Buildings },
-  ],
-  company_admin: [
-    { to: "/app/hr", label: "Overview", icon: HouseLine },
-    { to: "/app/employees", label: "Employees", icon: UsersThree },
-    { to: "/app/org-tree", label: "Organization", icon: TreeStructure },
-    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus, module: "onboarding" },
-    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus, module: "onboarding" },
-    { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
-    { to: "/app/workflows", label: "Workflows", icon: FlowArrow },
-    { to: "/app/leave", label: "Leave", icon: CalendarCheck },
-    { to: "/app/leave-admin", label: "Leave Admin", icon: CalendarCheck },
-    { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
-    { to: "/app/attendance-admin", label: "Attendance Admin", icon: ClockClockwise },
-    { to: "/app/payroll", label: "Payroll", icon: CurrencyInr, module: "payroll" },
-    { to: "/app/payroll-runs", label: "Payroll runs", icon: Calendar, module: "payroll" },
-    { to: "/app/fnf-loans", label: "F&F & Loans", icon: Handshake, module: "payroll" },
-    { to: "/app/expenses", label: "Expenses & Travel", icon: AirplaneTilt, module: "expense" },
-    { to: "/app/assets", label: "Assets", icon: Laptop },
-    { to: "/app/letters", label: "Letters", icon: FileText },
-    { to: "/app/policies", label: "Policies", icon: BookBookmark },
-    { to: "/app/requests", label: "Requests", icon: PackageIcon },
-    { to: "/app/billing", label: "Billing & Modules", icon: Receipt },
-  ],
-  branch_manager: [
-    { to: "/app/manager", label: "My Team", icon: HouseLine },
-    { to: "/app/approvals", label: "Approvals", icon: ShieldCheck },
-    { to: "/app/employees", label: "Directory", icon: UsersThree },
-    { to: "/app/onboarding", label: "Onboarding", icon: UserCirclePlus },
-    { to: "/app/offboarding", label: "Offboarding", icon: UserCircleMinus },
-    { to: "/app/requests", label: "Requests", icon: PackageIcon },
-  ],
-  employee: [
-    { to: "/app/employee", label: "My Workspace", icon: HouseLine },
-    { to: "/app/me", label: "My Profile", icon: UserCircle },
-    { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
-    { to: "/app/leave", label: "Leave", icon: CalendarCheck },
-    { to: "/app/expenses", label: "Expenses & Travel", icon: AirplaneTilt, module: "expense" },
-    { to: "/app/policies", label: "Policies", icon: BookBookmark },
-    { to: "/app/requests", label: "Requests", icon: PackageIcon },
-    { to: "/app/my-submissions", label: "My Submissions", icon: FolderSimpleStar },
-  ],
-};
+import {
+  MODULES, ROLE_WORKSPACES, isRoleEligible, isEntitled, filterItems, moduleFromPath,
+} from "../lib/moduleRegistry";
 
 export default function AppShell({ children, title }) {
   const { user, logout } = useAuth();
   const { active: activeModules } = useModules();
   const navigate = useNavigate();
+  const location = useLocation();
   if (!user) return null;
-  const rawNav = NAV_BY_ROLE[user.role] || NAV_BY_ROLE.employee;
-  // Filter out nav entries whose module isn't active (super_admin & reseller bypass — no module field on their nav)
-  const nav = user.role === "super_admin"
-    ? rawNav
-    : rawNav.filter(item => !item.module || activeModules.includes(item.module) || activeModules.includes("*"));
+
+  // ─── Decide which nav to render ───
+  // HR roles use the module-scoped sidebar (one module at a time, switcher in header).
+  // All other roles use their flat role workspace.
+  const HR_ROLES = ["company_admin", "country_head", "region_head"];
+  const isHr = HR_ROLES.includes(user.role);
+
+  let nav = [];
+  let currentModule = null;
+  if (isHr) {
+    const modId = moduleFromPath(location.pathname);
+    currentModule =
+      MODULES.find(m => m.id === modId && isRoleEligible(m, user.role) && isEntitled(m, activeModules) && !m.locked)
+      || MODULES.find(m => m.id === "people");
+    nav = filterItems(currentModule?.items || [], user.role, activeModules);
+  } else {
+    const ws = ROLE_WORKSPACES[user.role] || ROLE_WORKSPACES.employee;
+    nav = filterItems(ws, user.role, activeModules);
+  }
+
   const initials = (user.name || user.email || "U").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
   return (
@@ -90,6 +55,17 @@ export default function AppShell({ children, title }) {
             </div>
           </div>
         </div>
+        {isHr && currentModule && (
+          <div className="px-4 py-3 border-b border-zinc-200 flex items-center gap-2.5" data-testid="sidebar-module-label">
+            <span className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${currentModule.color}`}>
+              <currentModule.icon size={14} weight="fill"/>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">Module</div>
+              <div className="text-sm font-semibold truncate">{currentModule.label}</div>
+            </div>
+          </div>
+        )}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {nav.map((item) => (
             <NavLink
@@ -146,26 +122,37 @@ export default function AppShell({ children, title }) {
       </aside>
 
       <main className="overflow-y-auto">
-        <header className="bg-white border-b border-zinc-200 px-8 py-5 sticky top-0 z-10" data-testid="top-header">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="tiny-label">{user.role.replace(/_/g, " ")}</div>
-              <h1 className="font-display font-bold text-2xl leading-tight tracking-tight mt-1" data-testid="page-title">
+        <header className="bg-white border-b border-zinc-200 px-8 py-3 sticky top-0 z-10 flex items-center justify-between gap-4" data-testid="top-header">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {isHr && <ModuleSwitcher/>}
+            {currentModule && (
+              <div className="h-6 w-px bg-zinc-200 mx-1 hidden md:block"/>
+            )}
+            <div className="min-w-0">
+              {currentModule && (
+                <div className="tiny-label">
+                  {currentModule.label}{title && " ·"}
+                </div>
+              )}
+              {!currentModule && (
+                <div className="tiny-label">{user.role.replace(/_/g, " ")}</div>
+              )}
+              <h1 className="font-display font-bold text-xl leading-tight tracking-tight truncate" data-testid="page-title">
                 {title}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-              <NavLink
-                to="/app/help"
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-950"
-                data-testid="header-help-link"
-              >
-                <Question size={14} weight="bold"/>
-                Help
-              </NavLink>
-              <NotificationsBell/>
-              <div className="tiny-label">{user.email}</div>
-            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <CmdK/>
+            <NotificationsBell/>
+            <NavLink
+              to="/app/help"
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-950"
+              data-testid="header-help-link"
+            >
+              <Question size={14} weight="bold"/>
+              Help
+            </NavLink>
           </div>
         </header>
         <div className="p-8">{children}</div>
