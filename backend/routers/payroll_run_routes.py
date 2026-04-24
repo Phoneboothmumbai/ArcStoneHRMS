@@ -344,3 +344,35 @@ async def get_payslip(pid: str, user=Depends(get_current_user)):
         if not run or run["status"] != "published":
             raise HTTPException(403, "Payslip not yet released")
     return slip
+
+
+@payslips_router.get("/{pid}/pdf")
+async def get_payslip_pdf(pid: str, user=Depends(get_current_user)):
+    from fastapi.responses import Response
+    from pdf_render import render_payslip_pdf
+    db = get_db()
+    slip = await db.payslips.find_one({"id": pid}, {"_id": 0})
+    if not slip:
+        raise HTTPException(404, "Not found")
+    # Same access rules as get_payslip
+    if user["role"] != "super_admin":
+        if user.get("company_id") != slip["company_id"]:
+            raise HTTPException(403, "Forbidden")
+        if user["role"] not in ("company_admin", "country_head", "region_head"):
+            if user.get("employee_id") != slip["employee_id"]:
+                raise HTTPException(403, "Forbidden")
+            run = await db.payroll_runs.find_one({"id": slip["run_id"]}, {"_id": 0})
+            if not run or run["status"] != "published":
+                raise HTTPException(403, "Payslip not yet released")
+
+    run = await db.payroll_runs.find_one({"id": slip["run_id"]}, {"_id": 0})
+    company = await db.companies.find_one({"id": slip["company_id"]}, {"_id": 0, "name": 1}) or {}
+    settings = await db.company_settings.find_one({"company_id": slip["company_id"]}, {"_id": 0}) or {}
+    pdf_bytes = render_payslip_pdf(
+        slip, run or {}, company_name=company.get("name", "Company"),
+        legal_entity=settings.get("legal_entity_name"),
+    )
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="payslip_{slip["period_month"]}_{slip["employee_code"]}.pdf"'},
+    )

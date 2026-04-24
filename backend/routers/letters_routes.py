@@ -195,3 +195,29 @@ async def sign_letter(lid: str, body: dict, request: Request, user=Depends(get_c
          "$set": {"status": "signed", "updated_at": now_iso()}},
     )
     return await db.generated_letters.find_one({"id": lid}, {"_id": 0})
+
+
+@letters_router.get("/{lid}/pdf")
+async def get_letter_pdf(lid: str, user=Depends(get_current_user)):
+    from fastapi.responses import Response
+    from pdf_render import render_letter_pdf
+    db = get_db()
+    doc = await db.generated_letters.find_one({"id": lid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Not found")
+    if user["role"] != "super_admin" and user.get("company_id") != doc["company_id"]:
+        raise HTTPException(403, "Forbidden")
+    if user["role"] not in ("super_admin", "company_admin", "country_head", "region_head") \
+            and user.get("employee_id") != doc.get("employee_id"):
+        raise HTTPException(403, "Forbidden")
+    company = await db.companies.find_one({"id": doc["company_id"]}, {"_id": 0, "name": 1}) or {}
+    settings = await db.company_settings.find_one({"company_id": doc["company_id"]}, {"_id": 0}) or {}
+    pdf_bytes = render_letter_pdf(
+        doc, company_name=company.get("name", "Company"),
+        legal_entity=settings.get("legal_entity_name"),
+    )
+    filename = (doc.get("template_name") or "letter").replace(" ", "_") + ".pdf"
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

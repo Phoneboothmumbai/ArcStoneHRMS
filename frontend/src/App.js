@@ -29,6 +29,12 @@ import LeaveAdmin from "./pages/LeaveAdmin";
 import AttendanceAdmin from "./pages/AttendanceAdmin";
 import Notifications, { NotificationPreferences } from "./pages/Notifications";
 import Payroll from "./pages/Payroll";
+import PayrollRuns from "./pages/PayrollRuns";
+import FnfAndLoans from "./pages/FnfAndLoans";
+import Policies from "./pages/Policies";
+import Letters from "./pages/Letters";
+import Assets from "./pages/Assets";
+import Expenses from "./pages/Expenses";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -73,6 +79,12 @@ function App() {
           <Route path="/app/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/app/notification-prefs" element={<ProtectedRoute><NotificationPreferences /></ProtectedRoute>} />
           <Route path="/app/payroll" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><Payroll /></ProtectedRoute>} />
+          <Route path="/app/payroll-runs" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><PayrollRuns /></ProtectedRoute>} />
+          <Route path="/app/fnf-loans" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><FnfAndLoans /></ProtectedRoute>} />
+          <Route path="/app/policies" element={<ProtectedRoute><Policies /></ProtectedRoute>} />
+          <Route path="/app/letters" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><Letters /></ProtectedRoute>} />
+          <Route path="/app/assets" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><Assets /></ProtectedRoute>} />
+          <Route path="/app/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

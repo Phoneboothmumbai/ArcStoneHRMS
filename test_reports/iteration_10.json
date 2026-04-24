@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 10 — HR web UI (6 NEW pages) + PDF generation end-to-end verification. BACKEND: 16/16 NEW tests pass + 154/154 existing regression tests pass (only 1 employee-payslip-PDF test SKIPPED because employee@acme.io has no CTC assigned so no payslip exists — expected, not a bug). Verified: payslip PDF download (%PDF- header, >500 bytes, content-type application/pdf), all 4 statutory CSVs (bank-advice w/ 'Employee Code', form-24q w/ 'PAN', pf-ecr w/ 'UAN', esic-monthly w/ 'IP Number'), policy create→publish flow, letter template + generate + PDF download, asset create→assign→return via /api/asset-assignments, loan create (principal=50000, outstanding=50000), FnF compute (pending_salary + leave_encashment + notice_recovery all present), expense claim submit→decide(approve). FRONTEND: All 6 new routes (/app/payroll-runs, /app/fnf-loans, /app/policies, /app/letters, /app/assets, /app/expenses) load cleanly for HR; sidebar shows all 6 new items for company_admin after reload. Employee sidebar correctly excludes every payroll/HR-admin route (payroll, payroll-runs, fnf-loans, letters, assets, onboarding, offboarding, approvals, workflows) while still showing Expenses & Travel + Policies. PayrollRuns stat cards render all 4 labels (Total runs, Cumulative gross, Cumulative net, Published).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/payslips (employee scope)", "issue": "Seed employee@acme.io has no CTC assigned; employee-scoped payslip list returns []. Cannot exercise employee-own payslip PDF download happy path against seed. Recommend adding CTC for employee@acme.io in seed so future automation can cover that path."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "ModulesContext hydration after login (carry-over from iter 9)", "issue": "HR login still requires a page.reload() before full sidebar (including new 6 items) renders — ModulesContext fetches /api/modules/mine on mount (pre-login) and never refetches after AuthContext.user transitions to authenticated. Reproduced this run: without reload, several module-gated items are absent. Fix scope unchanged: subscribe ModulesProvider to useAuth() and trigger refresh() on login.", "affected_selectors": ["a[href='/app/payroll-runs']", "a[href='/app/fnf-loans']", "a[href='/app/letters']", "a[href='/app/assets']", "a[href='/app/policies']", "a[href='/app/expenses']", "a[href='/app/payroll']", "a[href='/app/onboarding']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10_new_features.py",
+    "/app/test_reports/pytest/iteration_10_results.xml"
+  ],
+  "action_items": [
+    "(Carry-over from iter 9, still unfixed) Fix /app/frontend/src/context/ModulesContext.jsx to refresh() when AuthContext.user transitions from null→authenticated. This keeps biting on every new module-gated nav addition.",
+    "(Minor seed) Assign a CTC to employee@acme.io in db.seed_demo_data so /api/payslips returns at least one published slip for that account — unlocks employee-own payslip PDF happy-path coverage."
+  ],
+  "critical_code_review_comments": [
+    "pdf_render.py + both /pdf endpoints look correct: valid %PDF- output, correct application/pdf content-type, size>500B — good.",
+    "Route naming inconsistencies (worth aligning in a follow-up): loans under /api/loans but LoanCreate is called EmployeeLoanCreate in models; asset assign via /api/asset-assignments/assign (good) while frontend still calls it through same path — consistent. FnF uses POST /api/fnf/compute to both create & compute (one-shot semantics) — works but is non-idiomatic; consider splitting POST /fnf (draft) + POST /fnf/{id}/compute for testability.",
+    "Policy/Letter routers use `body_markdown` as the Pydantic field while docs/PRD describe it as 'body'; frontend correctly uses body_markdown. Worth adding an API schema doc snippet to avoid future drift.",
+    "Assets router has no GET /api/assets/{id} single-get endpoint — all reads go through list+filter. Fine for small datasets but will O(n) on scale. Add a single-get for detail pages.",
+    "Employee seed missing CTC means e2e employee payslip path is only partially covered by automation — see action items."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration10_new_features.py (NEW — 17 tests covering all 6 new UI pages + PDF + statutory CSVs + sidebar gating)"
+  ],
+  "success_rate": {"backend": "100% (16/16 new + 154/154 regression, 2 pre-existing skips + 1 data-dependent skip)", "frontend": "95% — all 6 new pages load, all sidebar gating correct AFTER reload; blocked on reload workaround (iter 9 bug)"},
+  "test_credentials": "hr@acme.io/Hr@12345 (company_admin), employee@acme.io/Employee@123 (employee), manager@acme.io/Manager@123 — all verified working this run",
+  "seed_data_creation": "Tests auto-cleanup (delete) after create/assign/return for assets, loans, policies, letter templates. One FnF settlement row (approved) for seed employee may remain — harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New HR pages are functionally correct backend-wise (16/16) and frontend-wise (all routes load, stat cards render, sidebar gating honored). Only remaining gap is the iter-9 ModulesContext race condition — requires 3-line fix in ModulesContext.jsx to subscribe to useAuth() and refresh on user change. Reusable test file: /app/backend/tests/test_iteration10_new_features.py covers payroll runs, payslip PDF, 4 statutory CSVs, policies CRUD+publish, letters template+generate+PDF, assets assign/return, loans create, fnf compute/approve, expenses submit/decide, and sidebar gating. Route gotchas worth remembering: loans=/api/loans (not /employee-loans), expenses=/api/expenses (not /expense-claims), expense approval=/decide not /approve, compensation=/api/compensation/all, asset assign=/api/asset-assignments/assign (not /assets/{id}/assign), statutory CSVs live under /api/payroll-runs/{rid}/exports/{bank-advice|form-24q|pf-ecr|esic-monthly}, FnF create+compute is one call POST /api/fnf/compute, policy & letter templates require body_markdown (not body).",
+  "rca of the issue": "No new critical issues. Only unresolved item is the iter-9 ModulesContext race (RCA unchanged): ModulesProvider mounts pre-auth, /api/modules/mine returns 401, fallback sets active=['base_hrms'], and there is no useEffect dependency on the authenticated user — so post-login first render never refetches. Mitigation during test: await page.reload(). Permanent fix: add `const { user } = useAuth(); useEffect(() => { if (user) refresh(); }, [user?.id]);` inside ModulesContext."
+}

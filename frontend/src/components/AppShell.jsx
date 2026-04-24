@@ -3,6 +3,7 @@ import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, IdentificationCard, SignOut, ShieldCheck, FlowArrow,
   Stack, Receipt, UserCirclePlus, UserCircleMinus, UserCircle, Question, BookOpen, CurrencyInr,
+  Calendar, Handshake, BookBookmark, FileText, Laptop, AirplaneTilt,
 } from "@phosphor-icons/react";
 import NotificationsBell from "./NotificationsBell";
 import { useAuth } from "../context/AuthContext";
@@ -34,6 +35,12 @@ const NAV_BY_ROLE = {
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
     { to: "/app/attendance-admin", label: "Attendance Admin", icon: ClockClockwise },
     { to: "/app/payroll", label: "Payroll", icon: CurrencyInr, module: "payroll" },
+    { to: "/app/payroll-runs", label: "Payroll runs", icon: Calendar, module: "payroll" },
+    { to: "/app/fnf-loans", label: "F&F & Loans", icon: Handshake, module: "payroll" },
+    { to: "/app/expenses", label: "Expenses & Travel", icon: AirplaneTilt, module: "expense" },
+    { to: "/app/assets", label: "Assets", icon: Laptop },
+    { to: "/app/letters", label: "Letters", icon: FileText },
+    { to: "/app/policies", label: "Policies", icon: BookBookmark },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
     { to: "/app/billing", label: "Billing & Modules", icon: Receipt },
   ],
@@ -50,6 +57,8 @@ const NAV_BY_ROLE = {
     { to: "/app/me", label: "My Profile", icon: UserCircle },
     { to: "/app/attendance", label: "Attendance", icon: ClockClockwise },
     { to: "/app/leave", label: "Leave", icon: CalendarCheck },
+    { to: "/app/expenses", label: "Expenses & Travel", icon: AirplaneTilt, module: "expense" },
+    { to: "/app/policies", label: "Policies", icon: BookBookmark },
     { to: "/app/requests", label: "Requests", icon: PackageIcon },
     { to: "/app/my-submissions", label: "My Submissions", icon: FolderSimpleStar },
   ],
