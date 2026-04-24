@@ -141,7 +141,7 @@ export function VendorsPage() {
               <TableRow key={v.id} onClick={()=>openDetail(v.id)} className="cursor-pointer hover:bg-zinc-50" data-testid={`vendor-row-${v.id}`}>
                 <TableCell className="font-mono text-xs">{v.code}</TableCell>
                 <TableCell className="font-medium">{v.name}<div className="text-xs text-zinc-500">{v.contact_email}</div></TableCell>
-                <TableCell className="capitalize text-xs">{v.kind.replace("_"," ")}</TableCell>
+                <TableCell className="capitalize text-xs">{(v.kind || "").replace("_"," ")}</TableCell>
                 <TableCell className="text-xs">{v.category || "—"}</TableCell>
                 <TableCell className="tabular-nums">{v.rating ? <span className="flex items-center gap-1"><Star size={12} weight="fill" className="text-amber-500"/> {v.rating}</span> : "—"}</TableCell>
                 <TableCell><Badge className={V_STATUS[v.status]}>{v.status}</Badge></TableCell>
@@ -364,8 +364,8 @@ export function RFQDetail() {
         <Table>
           <TableHeader><TableRow><TableHead>Vendor</TableHead><TableHead>Invited</TableHead><TableHead>Viewed</TableHead><TableHead>Quote</TableHead></TableRow></TableHeader>
           <TableBody>
-            {(rfq.invited_vendors || []).map(iv => (
-              <TableRow key={iv.vendor_id}>
+            {(rfq.invited_vendors || []).map((iv, idx) => (
+              <TableRow key={`${iv.vendor_id}-${idx}`}>
                 <TableCell className="font-medium">{iv.vendor_name}</TableCell>
                 <TableCell className="text-xs">{(iv.invited_at || "").slice(0,16).replace("T"," ")}</TableCell>
                 <TableCell className="text-xs">{iv.viewed_at ? (iv.viewed_at || "").slice(0,16).replace("T"," ") : <span className="text-zinc-400">not viewed</span>}</TableCell>

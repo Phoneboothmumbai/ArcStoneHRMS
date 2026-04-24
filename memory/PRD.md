@@ -13,7 +13,47 @@
 
 ## What's been implemented
 
+### Apr 24, 2026 — Procurement Deepening + Operations activation 🏗️
+**Delivered in one pass: full Procurement & Vendor Marketplace (previously only basic vendor CRUD) + activated Expense/Asset/Travel modules.** 31/31 backend tests passing.
+
+**Scope shipped:**
+
+**Backend** — `models_procurement.py` + `routers/procurement_routes.py`
+- **Vendors** — `/api/procurement/vendors` CRUD with auto V-#### codes, portal_token generation on create, HR-only token exposure (stripped from list/employee views), PATCH, `/rotate-token` for immediate revocation.
+- **Vendor Ratings** — `/api/procurement/vendors/rate` (1–5 stars per PO completion) with rolling avg + count persisted on vendor doc; `/{id}/ratings` lists history.
+- **RFQ sealed-bid** — `/api/rfqs` with auto RFQ-YYYY-#### codes, multi-line items with hidden `target_unit_price` (internal only, stripped from vendor portal), status machine (draft → open → closed → awarded → cancelled), `/invite` multi-vendor with dedupe, invited_vendors tracks `viewed_at` + `quote_id` per vendor.
+- **Sealed-quote visibility** — `/api/rfqs/{id}/quotes` returns `{quotes[], sealed_count}`; HR sees zero quotes pre-deadline/close (sealed_count > 0). On status→closed OR deadline passed, quotes auto-unseal (`sealed:false`).
+- **Quote comparison matrix** — `/api/rfqs/{id}/compare` returns `{rfq, vendors[savings_pct], matrix[item→vendor_prices], lowest_total}` for side-by-side evaluation.
+- **Award** — `/api/rfqs/{id}/award {quote_id}` marks winner + auto-drafts a Purchase Order from RFQ items × winning quote unit prices; losing quotes → status=lost.
+- **Purchase Order chain** — `/api/purchase-orders` full lifecycle:
+  - Auto PO-YYYY-#### code. Auto-recalc `subtotal`/`tax_total`/`grand_total` on each line change.
+  - `/submit-for-approval` fires into existing `approval_requests` engine (reuses leave/expense chain).
+  - `/approve-decision {decision}` HR shortcut; `/send` flips to sent.
+  - `/receive {lines[]}` supports partial receipt; flips to `partially_received` or `received` based on coverage.
+  - `/invoice {invoice_number, invoice_amount}` → status=invoiced.
+  - `/pay` → status=paid (400 if not invoiced first).
+- **Vendor Portal** — `/api/vendor-portal/*` UNGATED routes, authenticated via `X-Vendor-Token` header OR `?token=` query param. Endpoints: `/me`, `/rfqs` (only invited, strips `target_unit_price`, auto-sets `viewed_at`), `/rfqs/{id}` (404 if not invited), `/quotes` (upserts, sealed:true, 400 after deadline), `/quotes/{id}/withdraw`, `/purchase-orders` (only own), `/acknowledge`.
+
+**Frontend** — `pages/Procurement.jsx` + `pages/VendorPortal.jsx`
+- **Procurement Overview** — 4 KPI cards (active vendors, open RFQs, POs awaiting approval, spend), 3 navigable tiles, Recent POs.
+- **Vendors** — List with rating stars, detail dialog with portal_token (copy + rotate), full contact/GST/PAN view.
+- **RFQs** — List with deadline tabular, quoted count, status pills; New RFQ dialog with dynamic line-item rows (target price hidden from vendors).
+- **RFQ Detail** — Items table + Invited vendors table (with viewed/quoted badges) + **Quote Comparison Matrix** (lowest unit-price per row shaded emerald, Total row with Trophy badge on winner, Award buttons after close).
+- **Purchase Orders** — List + detail with status-conditional action buttons (Submit → Approve → Send → Receive → Invoice → Pay). "Rate this vendor" section appears after paid with 5-star UI.
+- **Vendor Portal `/vendor-portal`** — Standalone orange-themed login (separate from AppShell, no JWT); token input OR auto-login via `?token=` URL; tabs for RFQs + POs; **Submit Sealed Quote** modal with per-line price inputs + auto-total; Acknowledge PO button on status=sent.
+
+**Operations Module activation:**
+- `db.py` seed now enables `expense`, `assets`, `travel` modules for ACME in addition to the 8 already active. **All 11 modules** now active by default: `base_hrms`, `procurement`, `onboarding`, `payroll`, `performance`, `ats`, `analytics`, `helpdesk`, `expense`, `assets`, `travel`.
+
+**Tests — 31/31 green.** Covers: 11-module activation, vendor CRUD + token rotation, ratings rollup, RFQ sealed-bid lifecycle, quote unseal on close, compare matrix, award→auto-PO, full PO chain (receive partial/full, invoice, pay), vendor portal auth (header+query), portal target-price hiding, module-gating (disable procurement → 402 on internal routes, portal still works), tenant isolation, blacklisted vendor 403.
+
+**Minor fixes during pass:**
+- `Vendor.kind` null-guard in list view (defensive optional chaining)
+- Duplicate-key React warning on RFQ detail invited_vendors table (keyed by `${vendor_id}-${idx}`)
+- Legacy module registry entries (old locked `recruitment` + `reports`) hidden
+
 ### Apr 24, 2026 — Phase 1K + 1L + 1I: Recruitment, Reports, Helpdesk & POSH 🎯
+[See below — prior entry]
 **3 major P0 modules shipped in a single push — completes the "full HRMS" pitch.**
 
 **Phase 1K — Recruitment / ATS** (`models_ats.py` · `routers/ats_routes.py`, gated by `requires_module("ats")`)
@@ -118,12 +158,13 @@ Lifecycle, Leave deepening, Attendance deepening, Notifications, Knowledge Base,
 - ~~HR web UI for all new phases.~~
 - ~~PDF generation for payslips + letters.~~
 - ~~Phase 1J — Performance Management (OKRs / Reviews / 9-Box / PIPs).~~
-- ~~Hetzner production deploy (supervisorctl `arcstone-backend`).~~
-- ~~**Phase 1K — Recruitment / ATS** (job requisitions, candidate pipeline, interviews, offers, auto-convert).~~
-- ~~**Phase 1L — Reports & MIS** (headcount, attrition, tenure, comp bands, custom builder, CSV).~~
-- ~~**Phase 1I — Helpdesk + POSH**.~~
-- ~~**Form 16 PDF**.~~
-- ~~**Letters bulk PDF pack**.~~
+- ~~Hetzner production deploy.~~
+- ~~Phase 1K — Recruitment / ATS.~~
+- ~~Phase 1L — Reports & MIS.~~
+- ~~Phase 1I — Helpdesk + POSH.~~
+- ~~Form 16 PDF + Letters bulk PDF.~~
+- ~~**Procurement deepening** — Full RFQ sealed-bid, quote compare, PO chain with approvals, vendor ratings, Vendor Portal.~~
+- ~~**Expense + Assets + Travel** module activation for ACME.~~
 
 ### P0 (next — start charging money)
 - **Stripe subscription billing** — per-company plan, module add-ons, usage-based seat count, invoices, dunning.
