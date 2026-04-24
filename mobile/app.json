@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Arcstone HRMS",
+    "slug": "arcstone-hrms",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#09090b"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.arcstone.hrms",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Arcstone uses your location to verify you're at an authorized work site when you check in.",
+        "NSCameraUsageDescription": "Arcstone needs camera access to take your check-in selfie.",
+        "NSFaceIDUsageDescription": "Arcstone uses Face ID for quick and secure sign-in."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#09090b"
+      },
+      "package": "io.arcstone.hrms",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiBaseUrl": "https://people-partner-cloud.preview.emergentagent.com"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-location",
+      "expo-local-authentication"
+    ]
+  }
+}

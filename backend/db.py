@@ -96,6 +96,38 @@ async def ensure_indexes() -> None:
     await db.salary_structures.create_index([("company_id", 1)])
     await db.employee_salaries.create_index([("company_id", 1), ("employee_id", 1), ("is_current", 1)])
     await db.employee_salaries.create_index([("employee_id", 1), ("effective_from", -1)])
+    # Phase 2B — Monthly payroll run engine
+    await db.payroll_runs.create_index([("company_id", 1), ("period_month", 1)], unique=True)
+    await db.payslips.create_index([("company_id", 1), ("run_id", 1), ("employee_id", 1)], unique=True)
+    await db.payslips.create_index([("employee_id", 1), ("period_month", -1)])
+    # Phase 2C — Investment declarations
+    await db.investment_declarations.create_index(
+        [("company_id", 1), ("employee_id", 1), ("financial_year", 1)], unique=True,
+    )
+    # Phase 2D — F&F settlements + loans
+    await db.employee_loans.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.employee_loans.create_index([("company_id", 1), ("status", 1)])
+    await db.fnf_settlements.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.fnf_settlements.create_index([("company_id", 1), ("status", 1)])
+    # Phase 1E — Policies + settings
+    await db.company_policies.create_index([("company_id", 1), ("slug", 1)], unique=True)
+    await db.company_policies.create_index([("company_id", 1), ("status", 1)])
+    await db.company_settings.create_index("company_id", unique=True)
+    # Phase 1F — Letters
+    await db.letter_templates.create_index([("company_id", 1), ("slug", 1)])
+    await db.generated_letters.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.generated_letters.create_index([("company_id", 1), ("category", 1)])
+    # Phase 1G — Assets
+    await db.assets.create_index([("company_id", 1), ("asset_tag", 1)], unique=True)
+    await db.assets.create_index([("company_id", 1), ("status", 1)])
+    await db.assets.create_index([("company_id", 1), ("assigned_to_employee_id", 1)])
+    await db.asset_assignments.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.asset_assignments.create_index([("asset_id", 1), ("is_current", 1)])
+    # Phase 1H — Expenses + travel
+    await db.expense_claims.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.expense_claims.create_index([("company_id", 1), ("status", 1)])
+    await db.travel_requests.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.travel_requests.create_index([("company_id", 1), ("status", 1)])
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:

@@ -45,6 +45,13 @@ from routers.payroll_routes import (
     structures_router as salary_structures_router,
     comp_router as compensation_router,
 )
+from routers.payroll_run_routes import runs_router as payroll_runs_router, payslips_router
+from routers.statutory_routes import decl_router as declarations_router, exp_router as payroll_exports_router
+from routers.fnf_routes import loans_router, fnf_router
+from routers.policy_routes import policies_router, settings_router as company_settings_router
+from routers.letters_routes import tmpl_router as letter_templates_router, letters_router
+from routers.assets_routes import assets_router, assignments_router as asset_assignments_router
+from routers.expenses_routes import expenses_router, travel_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -109,6 +116,20 @@ app.include_router(notifications_router)
 app.include_router(salary_components_router)
 app.include_router(salary_structures_router)
 app.include_router(compensation_router)
+app.include_router(payroll_runs_router)
+app.include_router(payslips_router)
+app.include_router(declarations_router)
+app.include_router(payroll_exports_router)
+app.include_router(loans_router)
+app.include_router(fnf_router)
+app.include_router(policies_router)
+app.include_router(company_settings_router)
+app.include_router(letter_templates_router)
+app.include_router(letters_router)
+app.include_router(assets_router)
+app.include_router(asset_assignments_router)
+app.include_router(expenses_router)
+app.include_router(travel_router)
 
 app.add_middleware(
     CORSMiddleware,
