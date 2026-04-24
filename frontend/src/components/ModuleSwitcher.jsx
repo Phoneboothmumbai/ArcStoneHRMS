@@ -24,6 +24,7 @@ export default function ModuleSwitcher() {
     const avail = [], upgrade = [];
     if (!user) return { avail, upgrade };
     for (const m of MODULES) {
+      if (m.hidden) continue;
       if (!isRoleEligible(m, user.role)) continue;
       if (m.locked || !isEntitled(m, activeModules)) upgrade.push(m);
       else avail.push(m);

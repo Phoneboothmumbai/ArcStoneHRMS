@@ -285,3 +285,97 @@ async def esic_monthly_csv(rid: str, user=Depends(require_roles(*ADMIN))):
             continue
         rows.append([ip, s["employee_name"], int(s["paid_days"]), f"{esic_wage:.2f}", "", ""])
     return _stream_csv(rows, f"esic_monthly_{run['period_month']}.csv")
+
+
+
+# ---------------------------------------------------------------------------
+# Form 16 — annual TDS certificate (Part B summary)
+# ---------------------------------------------------------------------------
+async def _compute_form16(db, cid: str, emp_id: str, fy: str) -> dict:
+    """FY format: '2025-26' → covers April 2025 to March 2026."""
+    try:
+        start_year = int(fy.split("-")[0])
+    except Exception:
+        raise HTTPException(400, "Financial year must be like '2025-26'")
+    months = []
+    for i in range(12):
+        yr = start_year + (0 if i < 9 else 1)
+        mo = ((i + 3) % 12) + 1
+        months.append(f"{yr:04d}-{mo:02d}")
+    emp = await db.employees.find_one({"id": emp_id, "company_id": cid}, {"_id": 0})
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    prof = await db.employee_profiles.find_one({"employee_id": emp_id}, {"_id": 0}) or {}
+    stat = (prof.get("statutory_india") or {})
+    slips = await db.payslips.find(
+        {"company_id": cid, "employee_id": emp_id, "period_month": {"$in": months}}, {"_id": 0},
+    ).sort("period_month", 1).to_list(20)
+    monthly_breakup = []
+    gross = 0.0
+    tds_total = 0.0
+    taxable_total = 0.0
+    basic_plus_allow = 0.0
+    for s in slips:
+        g = float(s.get("actual_gross") or 0)
+        t = float(s.get("tds") or s.get("income_tax") or 0)
+        taxable_m = float(s.get("taxable_income") or (g * 0.9))
+        gross += g
+        tds_total += t
+        taxable_total += taxable_m
+        basic_plus_allow += g
+        monthly_breakup.append({"period_month": s.get("period_month"), "gross": g, "taxable": taxable_m, "tds": t})
+    std_ded = 50000.0
+    chap_via = float((prof.get("tax_investment_summary") or {}).get("total_80c_80d_others") or 0.0)
+    taxable_income = max(0.0, gross - std_ded - chap_via)
+    decl = await db.investment_declarations.find_one(
+        {"company_id": cid, "employee_id": emp_id, "financial_year": fy}, {"_id": 0},
+    ) or {}
+    return {
+        "employee_id": emp_id, "employee_name": emp.get("name"),
+        "employee_code": emp.get("employee_code"),
+        "designation": emp.get("job_title"),
+        "date_of_joining": (emp.get("joined_on") or "")[:10],
+        "pan": stat.get("pan"), "tax_regime": decl.get("tax_regime") or "new",
+        "financial_year": fy,
+        "gross_salary": round(gross, 2),
+        "basic_plus_allowances": round(basic_plus_allow, 2),
+        "perquisites": 0.0, "profits_in_lieu": 0.0,
+        "section_10_exemptions": 0.0,
+        "hra_exempt": 0.0, "lta_exempt": 0.0, "other_exemptions": 0.0,
+        "standard_deduction": std_ded,
+        "professional_tax": 0.0,
+        "chapter_via_deductions": round(chap_via, 2),
+        "taxable_income": round(taxable_income, 2),
+        "tds_deducted": round(tds_total, 2),
+        "monthly_breakup": monthly_breakup,
+    }
+
+
+@exp_router.get("/companies/{cid}/exports/form-16/{emp_id}")
+async def form16_json(cid: str, emp_id: str, financial_year: str = Query(...),
+                      user=Depends(require_roles(*ADMIN))):
+    if cid != user.get("company_id"):
+        raise HTTPException(403, "Tenant mismatch")
+    db = get_db()
+    return await _compute_form16(db, cid, emp_id, financial_year)
+
+
+@exp_router.get("/companies/{cid}/exports/form-16/{emp_id}/pdf")
+async def form16_pdf(cid: str, emp_id: str, financial_year: str = Query(...),
+                     user=Depends(require_roles(*ADMIN))):
+    from pdf_render import render_form16_pdf
+    from fastapi.responses import Response
+    if cid != user.get("company_id"):
+        raise HTTPException(403, "Tenant mismatch")
+    db = get_db()
+    data = await _compute_form16(db, cid, emp_id, financial_year)
+    company = await db.companies.find_one({"id": cid}, {"_id": 0, "name": 1, "legal_name": 1}) or {}
+    pdf = render_form16_pdf(
+        data, company_name=company.get("name", "Company"),
+        legal_entity=company.get("legal_name") or company.get("name"),
+    )
+    fname = f"Form16_{(data.get('employee_name') or emp_id).replace(' ', '_')}_{financial_year}.pdf"
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

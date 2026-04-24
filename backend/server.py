@@ -59,6 +59,19 @@ from routers.performance_routes import (
     ninebox_router as performance_ninebox_router,
     pips_router as performance_pips_router,
 )
+from routers.ats_routes import (
+    reqs_router as ats_reqs_router,
+    cand_router as ats_candidates_router,
+    iv_router as ats_interviews_router,
+    offers_router as ats_offers_router,
+    careers_router as ats_careers_router,
+)
+from routers.reports_routes import router as reports_router
+from routers.helpdesk_routes import (
+    cats_router as ticket_categories_router,
+    tickets_router as tickets_router,
+    posh_router as posh_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -142,6 +155,15 @@ app.include_router(performance_goals_router)
 app.include_router(performance_reviews_router)
 app.include_router(performance_ninebox_router)
 app.include_router(performance_pips_router)
+app.include_router(ats_reqs_router)
+app.include_router(ats_candidates_router)
+app.include_router(ats_interviews_router)
+app.include_router(ats_offers_router)
+app.include_router(ats_careers_router)
+app.include_router(reports_router)
+app.include_router(ticket_categories_router)
+app.include_router(tickets_router)
+app.include_router(posh_router)
 
 app.add_middleware(
     CORSMiddleware,

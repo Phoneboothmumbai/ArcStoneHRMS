@@ -1,0 +1,54 @@
+{
+  "summary": "Iteration 12 — Recruitment/ATS, Reports/MIS, Helpdesk, POSH, Form 16 PDF, Letters-bulk. Backend: 26/26 pass covering JR auto-code + status transitions (draft/open/on_hold/open), public careers list & apply with dedupe, internal candidate lifecycle (applied→screening→shortlisted→interview→offer→accepted→hired), interview scheduling with auto stage-advance + scorecard rollup (most-common outcome), offer draft→sent→accept→convert-to-Employee with EMP#### code + auto onboarding instance, Reports KPIs (6 fields), headcount + CSV with Content-Disposition, attrition/tenure/comp-bands, report builder JSON+CSV, Helpdesk ticket SLA (first_response_due+resolve_due), HR-only stats/overview, POSH anonymous identity-strip + committee ACL (non-committee HR gets 403, committee HR sees all + log/status/outcome), Form 16 JSON + PDF with %PDF header, cross-tenant 403, ATS module-gating 402 after disable. Frontend verified: all 9 new HR pages render (Recruitment overview 4 stat-cards + open reqs + recent candidates, Requisitions list, Offers list, Reports dashboard 6 KPI-cards + 4 chart sections + CSV button, Compensation bands table, Custom report builder, Helpdesk stats + tickets, Categories, POSH with red confidentiality banner).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/payroll-runs/companies/{cid}/exports/form-16/{emp_id}", "issue": "Route lives under the /api/payroll-runs prefix (exp_router) but the review request spec and docs said /api/companies/{cid}/exports/form-16/{emp_id}. Frontend callers must use the /api/payroll-runs prefix. Consider creating a cleaner /api/companies/... alias or moving Form 16 to its own exports_router with prefix /api/exports."},
+      {"endpoint": "POST /api/posh/committee", "issue": "role_in_committee literal only accepts presiding_officer|internal_member|external_member|observer. PRD/review wording used 'chairperson' which 500s. Either accept 'chairperson' alias or document allowed values in frontend picker."},
+      {"endpoint": "GET /api/reports/headcount (and /builder/run employees)", "issue": "Falls back to raw department_id UUID when department_name is not denormalised on the employee doc. UI shows long UUIDs like 752fd63c-106b-… instead of dept names. Need to resolve department_id → name lookup (or fix denormalisation in employee-create/update path)."},
+      {"endpoint": "GET /api/reports/tenure", "issue": "Avg tenure 0 yr and all 32 employees in <1yr bucket on ACME — indicates many seeded employees lack parseable joined_on. Double-check seed data / iso date parsing."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "ModulesContext hydration (carry-over from iter 9/10/11)", "issue": "Still unfixed — HR must page.reload() once after login for Recruitment/Reports/Helpdesk chips + sidebar to appear. Test harness applied reload() workaround.", "affected_selectors": ["sidebar Recruitment/Reports/Helpdesk module chips"]}
+    ],
+    "design_issues": [
+      {"screen": "Reports dashboard — Headcount by department", "issues": ["Raw UUID shown instead of department name (backend fallback to department_id). Users see 752fd63c-106b-4cbb-b… which is meaningless."]},
+      {"screen": "Reports dashboard — Tenure distribution", "issues": ["All 32 employees fall in <1 yr bucket and avg=0 yr because most seeded employees lack parseable joined_on. Demo data smell."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration12_modules.py",
+    "/app/test_reports/pytest/iteration_12.xml"
+  ],
+  "action_items": [
+    "Move Form 16 endpoints out of /api/payroll-runs prefix OR update PRD/docs to reflect the actual /api/payroll-runs/companies/{cid}/exports/form-16/{emp_id} URL; also update any frontend callers if they currently hit /api/companies/... (would 404).",
+    "Denormalise department_name on employee docs (or resolve in reports aggregation) so Headcount by department does not show raw UUIDs.",
+    "Expose the real POSH role_in_committee literals (presiding_officer|internal_member|external_member|observer) in any UI picker; update any docs that say 'chairperson'.",
+    "Fix long-pending ModulesContext race (iter 9-11 carry-over): ModulesProvider does not refresh on user login. 3-line patch already documented in iter 11 report.",
+    "Seed data hygiene: 32 employees with 0-year tenure breaks the Tenure chart; fix joined_on on seeds.",
+    "Letters /bulk-pdf endpoint was listed in scope but not exercised in this run (requires generating ≥1 letter first via /api/letters/generate). Add to regression next pass."
+  ],
+  "critical_code_review_comments": [
+    "ats_routes.py _next_code is not race-safe — counts documents and increments. Two concurrent inserts can produce the same JR-2026-#### code. Use a per-company counters collection with findOneAndUpdate($inc) to generate unique codes atomically. Same issue in _next_ticket_code and _next_posh_code.",
+    "convert-to-employee handler hard-imports Employee and Onboarding inside the function body — acceptable, but also uses count_documents+1 for EMP#### — same race-condition pattern as above. Under parallel hires this can generate duplicate employee_code.",
+    "Reports /headcount and /headcount.csv iterate all employees with async for — fine at 32 docs but at 10k+ this will be slow. Consider $group aggregation.",
+    "Reports/builder/run accepts arbitrary entity string then does db[entity] — safe because of _ENTITIES whitelist, but consider explicit mapping so accidental key additions don't expose sensitive collections.",
+    "Helpdesk ticket raiser visibility: list_tickets only filters by raiser OR assignee for non-HR — correct, but /{tid}/comment allows is_internal=true to be downgraded to false for employees silently (line 211) — consider returning 403 when employee tries to post internal comment instead of silently stripping.",
+    "POSH anonymous ack response does NOT leak complainant_user_id/complainant_name — verified. Good.",
+    "Module-gating 402 verified on ats (disable /api/requisitions → 402) — trust extends to analytics + helpdesk via same requires_module() dep pattern.",
+    "Recruitment.jsx and Reports.jsx and Helpdesk.jsx are each growing toward 500+ lines as default + sub-pages exports. Consider splitting per File Size guideline (>700 LOC)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration12_modules.py (NEW — 26 tests: ATS×7, Reports×6, Helpdesk×6, POSH×3, Form16×3, Gating×1)"
+  ],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100% on critical smoke — all 9 new HR pages render with correct data; 2 cosmetic design issues on Reports charts"},
+  "test_credentials": "hr@acme.io/Hr@12345 (company_admin), employee@acme.io/Employee@123, manager@acme.io/Manager@123, admin@hrms.io/Admin@123 — all verified working",
+  "seed_data_creation": "Created persistent test artefacts on ACME tenant: ~5 TEST_SWE_* requisitions, ~10 TEST Alice/Bob candidates (some careers-page dedupe), 1 TEST IT-Laptop ticket category per run, 1 TEST anonymous POSH complaint, 1 offer + 1 EMP#### employee + 1 onboarding instance per run. Added hr@acme.io to POSH committee (presiding_officer) — persists and affected subsequent runs of test_non_committee_hr_cannot_read_anon which now branches on actual membership. Prefix convention kept (TEST_/TEST ) for cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 12 regression suite at /app/backend/tests/test_iteration12_modules.py (26 tests, ~8s). Module IDs are ats / analytics / helpdesk (NOT recruitment/reports). Form 16 routes are NOT at /api/companies/{cid}/... — they live under /api/payroll-runs/companies/{cid}/exports/form-16/{emp_id}[/pdf] (exp_router prefix). Interview round uses Literal strings (phone_screen|technical|manager_round|hr_round|culture_fit|panel|final|other) — NOT integers. Scorecard outcome is Literal (strong_yes|yes|maybe|no|strong_no) — NOT 'hire'. POSH role_in_committee Literal is presiding_officer|internal_member|external_member|observer — NOT 'chairperson'. hr@acme.io is already a POSH committee member after this run so isolation test auto-branches. Letters /bulk-pdf NOT yet exercised — needs a letters/generate call first. ModulesContext post-login reload workaround still required (iter 9/10/11 carry-over).",
+  "rca of the issue": "No blocker RCAs. Minor issues: (1) Form 16 URL mismatch — routes declared under exp_router with prefix /api/payroll-runs so the PRD-specced /api/companies/... does not resolve. Mitigation: call the real URL or move to a dedicated exports router. (2) Reports headcount shows UUIDs because employee docs don't carry department_name consistently — backend falls back to department_id. Fix: either denormalise name on employee upsert or resolve via $lookup in the aggregation. (3) Atomic code generation for JR/HELP/POSH/EMP relies on count_documents+1 which is race-prone under concurrency; switch to counters collection with findOneAndUpdate($inc) for production-grade uniqueness."
+}

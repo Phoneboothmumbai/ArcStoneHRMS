@@ -39,6 +39,11 @@ import PerformanceOverview, {
   PerformanceCycles, PerformanceGoals, PerformanceReviews,
   PerformanceNineBox, PerformancePIPs,
 } from "./pages/Performance";
+import RecruitmentOverview, {
+  Requisitions, RequisitionDetail, Offers as RecruitmentOffers,
+} from "./pages/Recruitment";
+import ReportsOverview, { CompensationReport, ReportBuilder } from "./pages/Reports";
+import Helpdesk, { TicketCategories, POSH } from "./pages/Helpdesk";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -95,6 +100,19 @@ function App() {
           <Route path="/app/performance/cycles" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><PerformanceCycles /></ProtectedRoute>} />
           <Route path="/app/performance/nine-box" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><PerformanceNineBox /></ProtectedRoute>} />
           <Route path="/app/performance/pips" element={<ProtectedRoute><PerformancePIPs /></ProtectedRoute>} />
+
+          <Route path="/app/recruitment" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><RecruitmentOverview /></ProtectedRoute>} />
+          <Route path="/app/recruitment/requisitions" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Requisitions /></ProtectedRoute>} />
+          <Route path="/app/recruitment/requisitions/:id" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><RequisitionDetail /></ProtectedRoute>} />
+          <Route path="/app/recruitment/offers" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><RecruitmentOffers /></ProtectedRoute>} />
+
+          <Route path="/app/reports" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><ReportsOverview /></ProtectedRoute>} />
+          <Route path="/app/reports/compensation" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><CompensationReport /></ProtectedRoute>} />
+          <Route path="/app/reports/builder" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><ReportBuilder /></ProtectedRoute>} />
+
+          <Route path="/app/helpdesk" element={<ProtectedRoute><Helpdesk /></ProtectedRoute>} />
+          <Route path="/app/helpdesk/categories" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><TicketCategories /></ProtectedRoute>} />
+          <Route path="/app/posh" element={<ProtectedRoute><POSH /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

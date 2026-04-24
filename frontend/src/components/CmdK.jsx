@@ -72,6 +72,8 @@ export default function CmdK() {
     actions.push({ label: "Mark attendance",         to: "/app/attendance" });
     actions.push({ label: "Submit expense claim",    to: "/app/expenses" });
     actions.push({ label: "View my goals",           to: "/app/performance/goals" });
+    actions.push({ label: "Raise a helpdesk ticket",  to: "/app/helpdesk" });
+    actions.push({ label: "File PoSH complaint (confidential)", to: "/app/posh" });
     if (isHr) {
       actions.push({ label: "New payroll run",         to: "/app/payroll-runs" });
       actions.push({ label: "Generate letter",         to: "/app/letters" });
@@ -80,6 +82,10 @@ export default function CmdK() {
       actions.push({ label: "Add asset",               to: "/app/assets" });
       actions.push({ label: "Open review cycle",       to: "/app/performance/cycles" });
       actions.push({ label: "Calibrate 9-Box",         to: "/app/performance/nine-box" });
+      actions.push({ label: "New job requisition",     to: "/app/recruitment/requisitions" });
+      actions.push({ label: "View offers",             to: "/app/recruitment/offers" });
+      actions.push({ label: "Open reports dashboard",  to: "/app/reports" });
+      actions.push({ label: "Custom report builder",   to: "/app/reports/builder" });
     }
     return actions;
   }, [user]);

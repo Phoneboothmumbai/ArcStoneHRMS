@@ -7,7 +7,7 @@ import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, ShieldCheck, FlowArrow, Stack, Receipt,
   UserCirclePlus, UserCircleMinus, UserCircle, CurrencyInr, Calendar, Handshake,
-  BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target,
+  BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock,
 } from "@phosphor-icons/react";
 
 // Helper role constants
@@ -134,6 +134,51 @@ export const MODULES = [
       { to: "/app/my-submissions",   label: "My Submissions",   icon: FolderSimpleStar },
     ],
   },
+  {
+    id: "ats",
+    label: "Recruitment",
+    icon: Briefcase,
+    color: "bg-teal-100 text-teal-700",
+    landing: "/app/recruitment",
+    roles: ROLE_MANAGER,
+    entitlement: "ats",
+    description: "Job requisitions, candidates, interviews, offers, auto-convert to employees.",
+    items: [
+      { to: "/app/recruitment",                label: "Overview",         icon: Briefcase },
+      { to: "/app/recruitment/requisitions",   label: "Requisitions",     icon: FolderSimpleStar },
+      { to: "/app/recruitment/offers",         label: "Offers",           icon: FileText,    roles: ROLE_HR },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports & MIS",
+    icon: ChartBar,
+    color: "bg-slate-200 text-slate-700",
+    landing: "/app/reports",
+    roles: ROLE_HR,
+    entitlement: "analytics",
+    description: "Headcount, attrition, tenure, compensation bands, custom builder, CSV export.",
+    items: [
+      { to: "/app/reports",              label: "Dashboard",        icon: ChartBar },
+      { to: "/app/reports/compensation", label: "Compensation",     icon: CurrencyInr },
+      { to: "/app/reports/builder",      label: "Custom builder",   icon: Stack },
+    ],
+  },
+  {
+    id: "helpdesk",
+    label: "Helpdesk",
+    icon: ShieldCheck,
+    color: "bg-rose-100 text-rose-700",
+    landing: "/app/helpdesk",
+    roles: ROLE_ANY,
+    entitlement: "helpdesk",
+    description: "Employee tickets with categories, SLAs, and confidential PoSH complaints.",
+    items: [
+      { to: "/app/helpdesk",             label: "Tickets",          icon: ShieldCheck },
+      { to: "/app/helpdesk/categories",  label: "Categories",       icon: Stack,       roles: ROLE_HR },
+      { to: "/app/posh",                 label: "PoSH",             icon: ShieldCheck },
+    ],
+  },
   // ────────────────── Admin / Settings ──────────────────
   {
     id: "admin",
@@ -168,14 +213,14 @@ export const MODULES = [
     ],
   },
   {
-    id: "recruitment", label: "Recruitment (ATS)", icon: Briefcase, color: "bg-teal-100 text-teal-700",
+    id: "recruitment", label: "Recruitment (ATS — legacy)", icon: Briefcase, color: "bg-teal-100 text-teal-700",
     landing: null, roles: ROLE_HR, entitlement: "recruitment",
-    description: "Job postings, candidate pipeline, interviews, offers.", items: [], locked: true,
+    description: "Deprecated — see 'Recruitment' module.", items: [], locked: true, hidden: true,
   },
   {
-    id: "reports", label: "Reports & MIS", icon: ChartBar, color: "bg-slate-200 text-slate-700",
-    landing: null, roles: ROLE_HR, entitlement: "reports",
-    description: "Headcount, attrition, DEI, custom report builder.", items: [], locked: true,
+    id: "reports_legacy", label: "Reports & MIS (legacy)", icon: ChartBar, color: "bg-slate-200 text-slate-700",
+    landing: null, roles: ROLE_HR, entitlement: "reports_legacy",
+    description: "Deprecated — see 'Reports & MIS' module.", items: [], locked: true, hidden: true,
   },
 ];
 
@@ -199,6 +244,8 @@ export const ROLE_WORKSPACES = {
     { to: "/app/leave",           label: "Leave",           icon: CalendarCheck },
     { to: "/app/performance/goals", label: "My Goals",      icon: Target, entitlement: "performance" },
     { to: "/app/performance/reviews", label: "My Reviews",  icon: ShieldCheck, entitlement: "performance" },
+    { to: "/app/helpdesk",        label: "Helpdesk",        icon: ShieldCheck, entitlement: "helpdesk" },
+    { to: "/app/posh",            label: "PoSH",            icon: Lock,        entitlement: "helpdesk" },
     { to: "/app/expenses",        label: "Expenses & Travel", icon: AirplaneTilt, entitlement: "expense" },
     { to: "/app/policies",        label: "Policies",        icon: BookBookmark },
     { to: "/app/requests",        label: "Requests",        icon: PackageIcon },
@@ -211,6 +258,8 @@ export const ROLE_WORKSPACES = {
     { to: "/app/attendance",   label: "Attendance", icon: ClockClockwise },
     { to: "/app/leave",        label: "Leave",      icon: CalendarCheck },
     { to: "/app/performance",  label: "Performance", icon: Target, entitlement: "performance" },
+    { to: "/app/recruitment",  label: "Recruitment", icon: Briefcase, entitlement: "ats" },
+    { to: "/app/helpdesk",     label: "Helpdesk",    icon: ShieldCheck, entitlement: "helpdesk" },
     { to: "/app/expenses",     label: "Expenses",   icon: AirplaneTilt, entitlement: "expense" },
   ],
 };

@@ -221,3 +221,47 @@ async def get_letter_pdf(lid: str, user=Depends(get_current_user)):
         content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+
+@letters_router.post("/bulk-pdf")
+async def bulk_letters_pdf(body: dict, user=Depends(get_current_user)):
+    """Zip up PDFs for multiple generated letters (HR-only).
+
+    body: {"letter_ids": ["...", "..."]}
+    Returns: application/zip with one PDF per letter.
+    """
+    from fastapi.responses import Response
+    from pdf_render import render_letter_pdf
+    import zipfile, io as _io
+    if user["role"] not in ("super_admin", "company_admin", "country_head", "region_head"):
+        raise HTTPException(403, "HR only")
+    ids = body.get("letter_ids") or []
+    if not ids or not isinstance(ids, list):
+        raise HTTPException(400, "letter_ids must be a non-empty list")
+    if len(ids) > 200:
+        raise HTTPException(400, "Max 200 letters per bulk pack")
+    db = get_db()
+    cid = user.get("company_id")
+    rows = await db.generated_letters.find({"id": {"$in": ids}, "company_id": cid}, {"_id": 0}).to_list(500)
+    if not rows:
+        raise HTTPException(404, "No letters matched")
+    company = await db.companies.find_one({"id": cid}, {"_id": 0, "name": 1}) or {}
+    settings = await db.company_settings.find_one({"company_id": cid}, {"_id": 0}) or {}
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for doc in rows:
+            pdf_bytes = render_letter_pdf(
+                doc, company_name=company.get("name", "Company"),
+                legal_entity=settings.get("legal_entity_name"),
+            )
+            name_bits = [doc.get("template_name") or "letter", doc.get("employee_name") or doc.get("id")]
+            fname = "_".join(str(x).replace(" ", "_").replace("/", "-") for x in name_bits) + ".pdf"
+            zf.writestr(fname, pdf_bytes)
+    buf.seek(0)
+    from datetime import datetime, timezone as _tz
+    zip_name = f"letters_{datetime.now(_tz.utc).strftime('%Y%m%d_%H%M%S')}.zip"
+    return Response(
+        content=buf.read(), media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+    )
