@@ -52,6 +52,13 @@ from routers.policy_routes import policies_router, settings_router as company_se
 from routers.letters_routes import tmpl_router as letter_templates_router, letters_router
 from routers.assets_routes import assets_router, assignments_router as asset_assignments_router
 from routers.expenses_routes import expenses_router, travel_router
+from routers.performance_routes import (
+    cycles_router as review_cycles_router,
+    goals_router as performance_goals_router,
+    reviews_router as performance_reviews_router,
+    ninebox_router as performance_ninebox_router,
+    pips_router as performance_pips_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -130,6 +137,11 @@ app.include_router(assets_router)
 app.include_router(asset_assignments_router)
 app.include_router(expenses_router)
 app.include_router(travel_router)
+app.include_router(review_cycles_router)
+app.include_router(performance_goals_router)
+app.include_router(performance_reviews_router)
+app.include_router(performance_ninebox_router)
+app.include_router(performance_pips_router)
 
 app.add_middleware(
     CORSMiddleware,

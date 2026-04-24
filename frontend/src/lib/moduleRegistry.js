@@ -150,9 +150,22 @@ export const MODULES = [
   },
   // ────────────────── Upgrade-only (greyed out until enabled) ──────────────────
   {
-    id: "performance", label: "Performance", icon: Target, color: "bg-pink-100 text-pink-700",
-    landing: null, roles: ROLE_HR, entitlement: "performance",
-    description: "OKRs, 1:1s, 360 reviews, 9-box grid, PIP.", items: [], locked: true,
+    id: "performance",
+    label: "Performance",
+    icon: Target,
+    color: "bg-pink-100 text-pink-700",
+    landing: "/app/performance",
+    roles: ROLE_MANAGER,
+    entitlement: "performance",
+    description: "OKRs, 1:1s, reviews, 9-box grid, PIPs.",
+    items: [
+      { to: "/app/performance",            label: "Overview",      icon: Target },
+      { to: "/app/performance/goals",      label: "Goals & OKRs",  icon: Target },
+      { to: "/app/performance/reviews",    label: "Reviews",       icon: ShieldCheck },
+      { to: "/app/performance/cycles",     label: "Review cycles", icon: Calendar,    roles: ROLE_HR },
+      { to: "/app/performance/nine-box",   label: "9-Box grid",    icon: Stack,       roles: ROLE_HR },
+      { to: "/app/performance/pips",       label: "PIPs",          icon: ChartBar },
+    ],
   },
   {
     id: "recruitment", label: "Recruitment (ATS)", icon: Briefcase, color: "bg-teal-100 text-teal-700",
@@ -184,6 +197,8 @@ export const ROLE_WORKSPACES = {
     { to: "/app/me",              label: "My Profile",      icon: UserCircle },
     { to: "/app/attendance",      label: "Attendance",      icon: ClockClockwise },
     { to: "/app/leave",           label: "Leave",           icon: CalendarCheck },
+    { to: "/app/performance/goals", label: "My Goals",      icon: Target, entitlement: "performance" },
+    { to: "/app/performance/reviews", label: "My Reviews",  icon: ShieldCheck, entitlement: "performance" },
     { to: "/app/expenses",        label: "Expenses & Travel", icon: AirplaneTilt, entitlement: "expense" },
     { to: "/app/policies",        label: "Policies",        icon: BookBookmark },
     { to: "/app/requests",        label: "Requests",        icon: PackageIcon },
@@ -195,6 +210,7 @@ export const ROLE_WORKSPACES = {
     { to: "/app/employees",    label: "Directory",  icon: UsersThree },
     { to: "/app/attendance",   label: "Attendance", icon: ClockClockwise },
     { to: "/app/leave",        label: "Leave",      icon: CalendarCheck },
+    { to: "/app/performance",  label: "Performance", icon: Target, entitlement: "performance" },
     { to: "/app/expenses",     label: "Expenses",   icon: AirplaneTilt, entitlement: "expense" },
   ],
 };

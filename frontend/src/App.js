@@ -35,6 +35,10 @@ import Policies from "./pages/Policies";
 import Letters from "./pages/Letters";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
+import PerformanceOverview, {
+  PerformanceCycles, PerformanceGoals, PerformanceReviews,
+  PerformanceNineBox, PerformancePIPs,
+} from "./pages/Performance";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -85,6 +89,12 @@ function App() {
           <Route path="/app/letters" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><Letters /></ProtectedRoute>} />
           <Route path="/app/assets" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><Assets /></ProtectedRoute>} />
           <Route path="/app/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+          <Route path="/app/performance" element={<ProtectedRoute><PerformanceOverview /></ProtectedRoute>} />
+          <Route path="/app/performance/goals" element={<ProtectedRoute><PerformanceGoals /></ProtectedRoute>} />
+          <Route path="/app/performance/reviews" element={<ProtectedRoute><PerformanceReviews /></ProtectedRoute>} />
+          <Route path="/app/performance/cycles" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><PerformanceCycles /></ProtectedRoute>} />
+          <Route path="/app/performance/nine-box" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><PerformanceNineBox /></ProtectedRoute>} />
+          <Route path="/app/performance/pips" element={<ProtectedRoute><PerformancePIPs /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

@@ -71,12 +71,15 @@ export default function CmdK() {
     actions.push({ label: "Apply for leave",         to: "/app/leave" });
     actions.push({ label: "Mark attendance",         to: "/app/attendance" });
     actions.push({ label: "Submit expense claim",    to: "/app/expenses" });
+    actions.push({ label: "View my goals",           to: "/app/performance/goals" });
     if (isHr) {
       actions.push({ label: "New payroll run",         to: "/app/payroll-runs" });
       actions.push({ label: "Generate letter",         to: "/app/letters" });
       actions.push({ label: "Compute F&F settlement",  to: "/app/fnf-loans" });
       actions.push({ label: "Publish a policy",        to: "/app/policies" });
       actions.push({ label: "Add asset",               to: "/app/assets" });
+      actions.push({ label: "Open review cycle",       to: "/app/performance/cycles" });
+      actions.push({ label: "Calibrate 9-Box",         to: "/app/performance/nine-box" });
     }
     return actions;
   }, [user]);
