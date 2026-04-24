@@ -13,6 +13,28 @@
 
 ## What's been implemented
 
+### Apr 24, 2026 — Daily Attendance View + Demo Data Seeder 📅
+**Closed the open in-progress task from the previous session.** 13/13 new backend tests + full frontend flow pass.
+
+**Backend:**
+- `GET /api/attendance/live-board?on_date=YYYY-MM-DD` — HR/manager daily board. Returns `{date, counts{present, late, half_day, on_leave, absent, holiday, week_off, wfh}, total, rows[{employee, status, check_in, check_out, hours, is_late, leave_type}]}`. Employee role gets 403.
+- `GET /api/attendance/register?month=YYYY-MM` — Monthly heatmap. Returns `{month, dates[], rows[{employee, days[{date, code}], summary}]}` with codes P/P*/HD/A/L/H/WO.
+- `POST /api/demo/seed-employees?count=N&years=Y&reset=bool` — HR-only bulk seeder. For 50×2y produces ~15.9K attendance, 670 payslips, 222 goals, 194 leaves, 21 tickets in **<1 second** (Mongo `insert_many` with `ordered=False`, per-month `run_id` on payslips, chunked 2K).
+- `POST /api/demo/wipe-demo` — HR-only wipe of all DEMO-prefixed employees + cascading data.
+
+**Frontend — `AttendanceAdmin.jsx` fully refactored into 6 tabs:**
+- **Today's Board** (default): 8 clickable KPI filter cards (Present/Late/Half-day/On-leave/Absent/WFH/Holiday/Week-off) + live employee table with status pills, search, date picker, refresh.
+- **Monthly Register**: Per-day heatmap grid with color-coded codes + per-employee P/A/L/HD summary columns, month picker, search.
+- **Demo data (HR)**: Count/Years/Reset controls, Seed button with progress state, Wipe button, success card with seed stats + `login_hint` (password `Demo@12345`, emails `demo{N}@acme.io`).
+- Shifts / Assignments / Work sites — unchanged from previous session.
+
+**Minor fixes during pass:**
+- Denormalized `department_name` + `branch_name` on demo-employee docs (Employee model uses `extra="ignore"`, so these need direct dict injection post-`model_dump`).
+- Added `run_id: "demo-run-YYYY-MM"` to payslip bulk inserts — removes the `company_id_1_run_id_1_employee_id_1` duplicate-key collision that was blocking multi-month seeds.
+- All seed `insert_many` calls now use `ordered=False` for tolerance.
+
+**Tests — 13/13 green.** Covers: live-board counts + RBAC (employee 403), register codes + summary math, seed happy-path + re-run idempotency with reset=true, wipe-demo, HR-only gating, tenant isolation.
+
 ### Apr 24, 2026 — Procurement Deepening + Operations activation 🏗️
 **Delivered in one pass: full Procurement & Vendor Marketplace (previously only basic vendor CRUD) + activated Expense/Asset/Travel modules.** 31/31 backend tests passing.
 
