@@ -8,6 +8,93 @@
 - **Backend**: FastAPI + MongoDB (motor), JWT auth, RBAC, module-gating via `requires_module`
 - **Web frontend**: React + Tailwind + shadcn/ui + phosphor-icons
 - **Mobile**: Expo (React Native) SDK 51 — Employee + Manager personas
+- **PDF engine**: reportlab (payslips, letters, future Form 16)
+- **Approval engine**: Generic chain, walks manager hierarchy with configurable per-type workflows
+
+## What's been implemented
+
+### Feb 24, 2026 — HR Web UI + PDF generation batch (sales-demo ready 🚀)
+**All 154/154 backend + 16/16 new UI-backing tests passing.**
+
+- **PDF payslips + letters** via reportlab (`pdf_render.py`):
+  - `GET /api/payslips/{id}/pdf` — styled 1-page payslip with header, employee grid, earnings/deductions/employer tables, NET PAY banner. Permission-aware: employee only if run is published.
+  - `GET /api/letters/{id}/pdf` — markdown → styled PDF with signatures block.
+
+- **6 new HR web UI pages**:
+  - `/app/payroll-runs` — **Payroll run dashboard**: 4 stat cards (total/gross/net/published), monthly cycle list with draft→compute→finalise→publish lifecycle buttons per row, inline payslip drill-down with 4 statutory CSV download buttons (Bank Advice, Form 24Q, PF ECR, ESIC) + per-employee PDF payslip download.
+  - `/app/fnf-loans` — **F&F & Loans**: 2 tabs. F&F tab with settlement list + Compute dialog (employee picker, LWD, notice served, bonus, other deductions) + detailed breakdown dialog showing pending salary/leave encashment/gratuity/notice recovery/loan recovery + one-click approve + mark-paid with NEFT ref prompt. Loans tab with list + new-loan dialog.
+  - `/app/policies` — policy CRUD with markdown body, category badges, publish/archive, acknowledgement count visible to HR.
+  - `/app/letters` — Templates tab (CRUD with merge-field hint: `{{employee_name}}`, `{{doj}}`, `{{ctc_annual}}`, `{{today}}`) + Generated tab (pick template + employee → render → PDF download).
+  - `/app/assets` — 4 stat cards (total/assigned/available/book value w/ cost hint), register table with tag/item/category/status/assignee/cost/book value + Assign + Return actions, condition prompt.
+  - `/app/expenses` — 2 tabs. Claims tab with stat cards + new-claim dialog (multi-item with category/date/amount/desc + Add/Remove rows + live total) auto-submits + HR approve/reject buttons. Travel tab with 7-state lifecycle actions (approve/reject/book/complete).
+
+- **Sidebar updates** (`AppShell.jsx`):
+  - company_admin gains: Payroll runs, F&F & Loans, Expenses & Travel, Assets, Letters, Policies.
+  - employee gains: Expenses & Travel (gated by `expense` module), Policies.
+  - All 6 new HR items gated appropriately (Payroll/FnfLoans behind `payroll` module, Expenses behind `expense` module).
+
+- **ModulesContext race** verified FIXED (re-tested — full sidebar renders in <1s after login, no reload required). Iter-9 fix holds.
+
+- **Installed dep**: `reportlab==4.4.10` (added to `backend/requirements.txt`).
+
+### Earlier this session
+- **📱 Mobile app v0.1** (Expo SDK 51) — 6 screens (login+biometric, home, attendance geo check-in/out, leave, approvals, profile). Run via `cd /app/mobile && npx expo start`.
+- **💰 Phase 2B** — Monthly payroll run engine (compute w/ LOP pro-rata, finalise, publish, reopen).
+- **📊 Phase 2C** — Investment declarations + 4 statutory CSV exports (Bank Advice / Form 24Q / PF ECR / ESIC).
+- **🎯 Phase 2D** — F&F settlement + loans with auto-close on paid.
+- **📋 Phase 1E** — Policy library + company settings (fiscal year helper).
+- **✉️ Phase 1F** — Letter templates + merge fields + e-sign.
+- **💻 Phase 1G** — Asset register + assignment flow.
+- **🧾 Phase 1H** — Expense claims + travel requests.
+- **Phase 2A polish** — Payroll wired + sidebar + statutory math preserved.
+- **Phase 1A/B/C/D/M** — Lifecycle, Leave deepening, Attendance deepening, Notifications, Knowledge Base.
+- **Phase 0** — Module entitlement framework.
+
+## Backlog
+
+### P0 (done ✅)
+- ~~Phase 2A/2B/2C/2D — Payroll India end-to-end.~~
+- ~~React Native mobile app v0.1.~~
+- ~~Phase 1E/1F/1G/1H — Policy, Letters, Assets, Expense+Travel.~~
+- ~~HR web UI for all new phases.~~
+- ~~PDF generation for payslips + letters.~~
+
+### P0 (next)
+- **Form 16 PDF** render (annual TDS certificate) — currently JSON payload only.
+- **Wire Expense submit → approval chain engine** (currently uses simple HR `/decide`).
+- **Mobile v0.2** — Expo push notifications (+ backend `/api/push-tokens`), selfie on check-in, payslip PDF viewer, Knowledge Base tab.
+- **Seed employee@acme.io with a CTC** so E2E tests can exercise employee-scoped payslip PDF path.
+
+### P1
+- **Phase 1J Performance** (OKR / PIP / 360 / 9-box) — second biggest sales trigger after payroll.
+- **Phase 1K Recruitment / ATS** — job postings, candidate pipeline, interviews, offer letters (reuses Letters engine).
+- **Phase 1L Reports & MIS** — headcount, attrition, DEI, custom builder.
+- **Phase 1I Helpdesk + POSH**.
+- **Reseller white-label** (logo, brand color, custom domain).
+- **Stripe subscription billing + Connect**.
+- **S3 migration** for document vault (currently base64).
+
+### P2
+- Procurement / Vendor Marketplace (RFQ sealed-bid, quote compare, PO chain).
+- SSO (SAML / OIDC).
+- Slack / Teams / Gmail / GCal integrations.
+- Per-country compliance packs.
+- SOC 2 / ISO 27001 track.
+- Biometric attendance integration (deferred by user).
+- Advanced approval engine (parallel chains, OOO delegation, auto-escalation).
+
+## Next tasks
+1. Form 16 PDF generation.
+2. Wire expense approval chain.
+3. Mobile v0.2 push + selfie + payslip viewer.
+4. Phase 1J Performance module.
+5. Reseller white-label.
+
+## Architecture
+- **4-tier tenancy**: Platform → Reseller → Company (Tenant) → Employees
+- **Backend**: FastAPI + MongoDB (motor), JWT auth, RBAC, module-gating via `requires_module`
+- **Web frontend**: React + Tailwind + shadcn/ui + phosphor-icons
+- **Mobile**: Expo (React Native) SDK 51 — Employee + Manager personas
 - **Approval engine**: Generic chain, walks manager hierarchy with configurable per-type workflows
 
 ## User personas
