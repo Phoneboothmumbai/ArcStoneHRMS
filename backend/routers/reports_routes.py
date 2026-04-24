@@ -47,6 +47,9 @@ def _csv_response(header: list[str], rows: list[list], filename: str) -> Respons
 async def headcount(user=Depends(require_roles(*HR))):
     db = get_db()
     cid = _cid(user)
+    # Pre-resolve department + branch id → name maps so we never show UUIDs
+    dept_map = {d["id"]: d.get("name") for d in await db.departments.find({"company_id": cid}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
+    branch_map = {b["id"]: b.get("name") for b in await db.branches.find({"company_id": cid}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
     total = await db.employees.count_documents({"company_id": cid, "status": {"$ne": "terminated"}})
     by_status: dict = {}
     by_department: dict = {}
@@ -60,11 +63,11 @@ async def headcount(user=Depends(require_roles(*HR))):
         by_status[st] = by_status.get(st, 0) + 1
         if st == "terminated":
             continue
-        dept = e.get("department_name") or e.get("department_id") or "—"
+        dept = e.get("department_name") or dept_map.get(e.get("department_id")) or "—"
         by_department[dept] = by_department.get(dept, 0) + 1
         et = e.get("employee_type", "wfo")
         by_employee_type[et] = by_employee_type.get(et, 0) + 1
-        br = e.get("branch_name") or e.get("branch_id") or "—"
+        br = e.get("branch_name") or branch_map.get(e.get("branch_id")) or "—"
         by_branch[br] = by_branch.get(br, 0) + 1
         role = e.get("role_in_company", "employee")
         by_role[role] = by_role.get(role, 0) + 1
@@ -87,14 +90,16 @@ async def headcount(user=Depends(require_roles(*HR))):
 async def headcount_csv(user=Depends(require_roles(*HR))):
     db = get_db()
     cid = _cid(user)
+    dept_map = {d["id"]: d.get("name") for d in await db.departments.find({"company_id": cid}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
+    branch_map = {b["id"]: b.get("name") for b in await db.branches.find({"company_id": cid}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
     header = ["Employee Code", "Name", "Email", "Department", "Branch", "Job Title",
               "Employee Type", "Role", "Status", "Joined On"]
     rows = []
     async for e in db.employees.find({"company_id": cid}, {"_id": 0}):
         rows.append([
             e.get("employee_code", ""), e.get("name", ""), e.get("email", ""),
-            e.get("department_name") or e.get("department_id") or "",
-            e.get("branch_name") or e.get("branch_id") or "",
+            e.get("department_name") or dept_map.get(e.get("department_id")) or "",
+            e.get("branch_name") or branch_map.get(e.get("branch_id")) or "",
             e.get("job_title", ""), e.get("employee_type", ""),
             e.get("role_in_company", ""), e.get("status", ""),
             (e.get("joined_on") or "")[:10],
@@ -197,6 +202,7 @@ async def comp_bands(user=Depends(require_roles(*HR))):
     total_cost = 0.0
     total_emp = 0
     by_dept: dict = {}
+    dept_map = {d["id"]: d.get("name") for d in await db.departments.find({"company_id": cid}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
     async for s in db.employee_salaries.find(
         {"company_id": cid, "is_current": True}, {"_id": 0, "ctc_annual": 1, "employee_id": 1},
     ):
@@ -209,7 +215,7 @@ async def comp_bands(user=Depends(require_roles(*HR))):
                 break
         emp = await db.employees.find_one({"id": s.get("employee_id")}, {"_id": 0, "department_name": 1, "department_id": 1})
         if emp:
-            d = emp.get("department_name") or emp.get("department_id") or "—"
+            d = emp.get("department_name") or dept_map.get(emp.get("department_id")) or "—"
             by_dept.setdefault(d, {"count": 0, "total_ctc": 0.0})
             by_dept[d]["count"] += 1
             by_dept[d]["total_ctc"] += ctc

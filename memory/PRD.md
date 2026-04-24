@@ -13,7 +13,58 @@
 
 ## What's been implemented
 
-### Apr 24, 2026 — Phase 1J: Performance Management 🎯
+### Apr 24, 2026 — Phase 1K + 1L + 1I: Recruitment, Reports, Helpdesk & POSH 🎯
+**3 major P0 modules shipped in a single push — completes the "full HRMS" pitch.**
+
+**Phase 1K — Recruitment / ATS** (`models_ats.py` · `routers/ats_routes.py`, gated by `requires_module("ats")`)
+- `/api/requisitions` — Job requisitions with auto-incrementing codes (JR-YYYY-####), full lifecycle (draft → open → on_hold → closed → cancelled).
+- `/api/candidates` — Candidate CRUD + 11-stage pipeline (applied → screening → shortlisted → interview → offer_pending → offer_sent → offer_accepted/declined → hired/rejected/withdrawn). Dedupe on (email, requisition). Notes timeline per candidate.
+- `/api/interviews` — Schedule w/ interviewers, auto-advance candidate stage; scorecards aggregate overall outcome by most-common vote.
+- `/api/offers` — draft → send → accept/decline, auto-generates offer letter from a `letter_templates` template with merge fields (candidate_name, job_title, annual_ctc, doj, etc.).
+- `/api/candidates/{id}/convert-to-employee` — One-click converts accepted candidate → Employee record (auto EMP#### code) + starts default Onboarding instance with tasks.
+- `/api/careers/{company_id}` + `/api/careers/{cid}/apply` — **Public unauthenticated** careers-page endpoints for public job board + application intake.
+
+**Phase 1L — Reports & MIS** (`routers/reports_routes.py`, gated by `requires_module("analytics")`)
+- `/api/reports/dashboard-kpis` — 6 KPIs for HR home (employees, reqs, offers, leaves, tickets, payslips this month).
+- `/api/reports/headcount` + `.csv` — By status / department / branch / employee_type / gender / role. Pre-resolves UUIDs → names.
+- `/api/reports/attrition?months=12` — Rolling 12mo annualised rate, by_month chart, by_reason.
+- `/api/reports/tenure` — Buckets (<1/1-2/2-5/5-10/10+ yr) + avg years.
+- `/api/reports/compensation-bands` — Band distribution + by_department breakdown.
+- `/api/reports/leave-summary?year=...` — Yearly leave analytics.
+- `/api/reports/builder/{entities,run}` — **Custom report builder**. Pick 1 of 6 entities × dimensions whitelist, filters, JSON or CSV export.
+
+**Phase 1I — Helpdesk + POSH** (`models_helpdesk.py` · `routers/helpdesk_routes.py`, gated by `requires_module("helpdesk")`)
+- `/api/ticket-categories` — HR-managed queues with SLA hours (first-response + resolve).
+- `/api/tickets` — Ticket lifecycle (open → in_progress → on_hold → resolved → closed → reopened). Comments (public + internal). Auto SLA due-dates. Employee rating post-resolve. `/stats/overview` with SLA-breached count.
+- `/api/posh/*` — **Confidential PoSH complaint flow** (Prevention of Sexual Harassment Act, India). Committee-only visibility. Anonymous intake strips complainant identity. Investigation log (timeline of events). Status lifecycle (filed → under_review → investigating → hearing → decision_pending → resolved_upheld/dismissed/withdrawn) with outcome.
+
+**Frontend** (3 new pages with 9 routes):
+- `pages/Recruitment.jsx` — Overview (4 KPI + open reqs + recent cands), Requisitions list, **Kanban-style candidate pipeline** (9 columns) on req detail, Offers with Send/Accept/Decline/Convert buttons.
+- `pages/Reports.jsx` — Dashboard (6 KPIs + 4 bar-list charts + CSV), Compensation bands, Custom Report Builder (entity × dimension toggles → Run/Export CSV).
+- `pages/Helpdesk.jsx` — Helpdesk (stats + ticket list + detail dialog w/ comments), Categories (HR), **PoSH** (red confidentiality banner + anonymous-toggle filing + committee-only investigation log).
+
+**Partial-completions (previously marked 🟡):**
+- **Form 16 PDF** — `/api/payroll-runs/companies/{cid}/exports/form-16/{emp_id}/pdf` renders a Part B TDS certificate with employee block + 4 sections (Gross Salary / Exemptions / Deductions / Taxable Income) + Monthly Breakup table. `pdf_render.py::render_form16_pdf`.
+- **Letters bulk PDF** — `POST /api/letters/bulk-pdf` accepts `letter_ids[]`, returns a ZIP with one PDF per letter (HR-only, max 200).
+
+**Navigation & UX:**
+- Module registry: unlocked `ats`, `analytics`, `helpdesk` modules; legacy locked entries hidden. Module Switcher respects `hidden:true` flag.
+- Employee workspace: added Helpdesk + PoSH quick links (gated by entitlement).
+- Manager workspace: added Recruitment + Helpdesk.
+- ⌘K palette: added "Raise a helpdesk ticket", "File PoSH complaint", "New job requisition", "Custom report builder", "Open reports dashboard" + 2 more for HR.
+
+**Seed:** `performance`, `ats`, `analytics`, `helpdesk` all active for ACME Global by default.
+
+**Tests — 26/26 green.** `/app/backend/tests/test_iteration12_modules.py` covers ATS×7 (auto-code, status transitions, careers apply dedupe, interview stage auto-advance, scorecard rollup, offer flow, convert-to-employee with onboarding), Reports×6 (KPIs, headcount CSV Content-Disposition, attrition/tenure/comp-bands, builder JSON+CSV), Helpdesk×6 (SLA due-date computation, HR-only stats, visibility rules), POSH×3 (anonymous identity-strip, non-committee 403, committee ACL), Form16×3 (JSON + PDF %PDF header + cross-tenant 403), module-gating×1 (402 on disabled).
+
+**Known minor items** (tracked in backlog):
+- `_next_code` / employee_code generation not race-safe — needs counter collection with `findOneAndUpdate($inc)` before 100+ concurrent hires. Non-blocking at current scale.
+- ModulesContext first-render race — carry-over from iter 9-11. User must reload once after login for newly-unlocked module chips to appear. localStorage cache would fix.
+- Recruitment.jsx / Reports.jsx / Helpdesk.jsx heading toward 700+ lines each — split per page into separate files later.
+- Seed data has too many employees with unparseable `joined_on` — breaks tenure chart; data hygiene task.
+
+### Apr 24, 2026 — Phase 1J: Performance Management
+[See previous entry below]
 **Shipped the second-biggest HRMS revenue driver (after Payroll). 24/24 new backend tests + 100% frontend flows passing.**
 
 **Backend** (`models_performance.py` · `routers/performance_routes.py`, all gated behind `requires_module("performance")`):
@@ -68,39 +119,60 @@ Lifecycle, Leave deepening, Attendance deepening, Notifications, Knowledge Base,
 - ~~PDF generation for payslips + letters.~~
 - ~~Phase 1J — Performance Management (OKRs / Reviews / 9-Box / PIPs).~~
 - ~~Hetzner production deploy (supervisorctl `arcstone-backend`).~~
+- ~~**Phase 1K — Recruitment / ATS** (job requisitions, candidate pipeline, interviews, offers, auto-convert).~~
+- ~~**Phase 1L — Reports & MIS** (headcount, attrition, tenure, comp bands, custom builder, CSV).~~
+- ~~**Phase 1I — Helpdesk + POSH**.~~
+- ~~**Form 16 PDF**.~~
+- ~~**Letters bulk PDF pack**.~~
 
-### P0 (next)
-- **Phase 1K — Recruitment / ATS** (job postings, candidate pipeline, interviews, offer letters — reuses Letters engine).
-- **Phase 1L — Reports & MIS** (headcount, attrition, DEI, custom report builder, Excel export).
-- **Form 16 PDF** (annual TDS certificate — currently JSON scaffold only).
-- **Wire Expense → approval chain engine** (currently uses simple HR `/decide`).
-- **Mobile v0.2** — Expo push notifications, selfie on check-in, payslip PDF viewer, Knowledge Base tab.
+### P0 (next — start charging money)
+- **Stripe subscription billing** — per-company plan, module add-ons, usage-based seat count, invoices, dunning.
+- **Stripe Connect — reseller commissions** — Reseller onboarding (KYC), split payouts, monthly commission statements.
+- **Reseller white-label** — Custom logo, brand color, login theming, custom domain mapping (CNAME + auto SSL).
 
-### P1
-- **Phase 1I** Helpdesk + POSH.
-- **Reseller white-label** (logo, brand color, custom domain).
-- **Stripe subscription billing + Connect commission payouts**.
-- **S3 migration** for document vault (currently base64).
-- **ModulesContext first-render flash** — on cold login-navigate sequence, sidebar briefly renders without gated entries. Already has `useEffect([user])` refresh, but the network latency window shows empty sidebar. Optimistic cache via localStorage would eliminate.
-- **Split Performance.jsx** (>700 lines with 6 sub-components) into per-page files.
-- **A11y polish** — add explicit `<DialogTitle>` + `aria-describedby` on Radix dialogs (silences console warnings).
+### P1 — remaining HRMS modules
+- **Phase 1M — Learning / LMS** — Courses (video/PDF/quiz), enrollments, completion tracking, certifications, compliance training reminders.
+- **Phase 1N — Engagement & Surveys** — Pulse surveys, eNPS, anonymous feedback, sentiment over time, action items.
+- **Phase 1O — Shift Scheduling** — Rota planning, shift swaps UI, drag-drop calendar, overtime auto-flag, coverage rules.
+- **Phase 1P — Advanced Analytics** — Workforce planning, attrition prediction (rule-based v1, ML later), cost analytics, manager dashboards.
+- **Mobile v0.2** — Expo push notifications, selfie check-in, payslip PDF viewer, OKR view, expense OCR, offline queue.
+
+### P1 — partial-completions remaining
+- **Payroll** — Multi-country payroll (only India today), investment proof upload flow, one-click TDS computation preview.
+- **Expense** — Wire into multi-level `workflow_engine` (currently simple `/decide`), per-diem policy engine, currency conversion, credit card import.
+- **Performance** — Peer review request/invite flow UI, 360° consolidated report PDF, 1:1 meeting notes, calibration meeting workflow, goal cascade visualization.
+- **Leave** — Comp-off flow UI, half-day UI, leave encashment requests UI (backend done).
+- **Attendance** — Bulk regularization, shift-change approval. (Biometric integration deferred by user.)
+- **Onboarding** — DocuSign/AdobeSign integration, DigiLocker/Aadhaar KYC auto-verify, BGV vendor integration.
+- **Knowledge Base** — Full-text search, comments, "was this helpful?", featured articles.
+- **Letters** — DocuSign integration (stub today), letter revocation workflow.
 
 ### P2
-- Procurement / Vendor Marketplace (RFQ sealed-bid, quote compare, PO chain).
-- SSO (SAML / OIDC).
-- Slack / Teams / Gmail / GCal integrations.
-- Per-country compliance packs.
-- SOC 2 / ISO 27001 track.
-- Biometric attendance integration (user deferred).
+- Enterprise SSO (SAML 2.0, OIDC, SCIM 2.0).
+- Per-country compliance packs (beyond India) + statutory calendars.
+- Data-residency routing (EU / IN / US / SG regional Mongo).
+- S3 migration for document vault (currently base64 in Mongo).
+- Audit log exports (SOC 2 prep).
+- Row-level PII encryption at rest (PAN, Aadhaar, bank).
+- GDPR data-subject endpoints.
+- Integrations: Slack, Teams, Gmail/GCal, WhatsApp Business, QuickBooks/Tally/Zoho, job-board syndication, DocuSign/AdobeSign, DigiLocker, BGV vendors.
+- Race-safe code generation (JR-####, HELP-####, EMP#### counters via `findOneAndUpdate($inc)`).
+- Split large Recruitment/Reports/Helpdesk pages into per-file subpages.
+- ModulesContext localStorage cache to remove first-render flash.
+- Seed data hygiene (tenure `joined_on` fixes).
+- Procurement / Vendor Marketplace deepening (RFQ sealed-bid, quote compare, PO chain).
+- Biometric attendance integration (deferred).
 - Advanced approval engine (parallel chains, OOO delegation, auto-escalation).
-- Test-data hygiene: phase1j tests leave demo rows in ACME; prefix TEST_ or use ephemeral tenant.
 
 ## Next tasks
-1. Phase 1K Recruitment / ATS.
-2. Phase 1L Reports & MIS.
-3. Form 16 PDF.
-4. Wire expense approval chain.
-5. Mobile v0.2 push + selfie + payslip viewer.
+1. Stripe subscription billing (Wave 2 revenue enabler).
+2. Stripe Connect for reseller commissions.
+3. Reseller white-label (logo + brand + custom domain).
+4. Phase 1M — Learning / LMS.
+5. Phase 1N — Engagement & Surveys.
+6. Phase 1O — Shift Scheduling.
+7. Phase 1P — Advanced Analytics.
+8. Mobile v0.2 (push, selfie, payslip PDF, OKR, expense OCR).
 
 ## User personas
 1. **Super Admin** — resellers, companies, platform metrics
