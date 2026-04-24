@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 14: Tested AttendanceAdmin live-board, monthly register, demo seeder (seed/wipe). All 13 backend pytests pass. Frontend 6-tab page (Today's Board, Monthly Register, Shifts, Assignments, Sites, Demo) loads and works end-to-end with HR login hr@acme.io. Seed count=5 years=1 showed 'Seed complete' green card. No issues found.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration14_attendance_demo.py",
+    "/app/test_reports/pytest/iteration_14.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "demo_data_routes.py is 377 lines — acceptable but approaching the threshold; consider splitting pools (names/titles/cities) into a fixtures module if it grows.",
+    "seed uses global random without seed argument — output is non-deterministic; harmless for demo but cannot reproduce exact data for bug repro.",
+    "register endpoint loads ALL approved leaves for the company (no date filter on leaves.find) — could grow slow on large tenants; consider filtering by start/end overlap with month range.",
+    "live-board caps employees.to_list(5000) and attendance.to_list(5000) — will silently truncate for very large tenants; consider pagination or unbounded cursor iteration with a warning log.",
+    "reset=true in seed uses regex on email '^demo[0-9]+@' for users — fine; wipe-demo regex identical. Confirmed consistent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration14_attendance_demo.py"
+  ],
+  "success_rate": { "backend": "100% (13/13)", "frontend": "100% (6/6 tabs + seed flow)" },
+  "test_credentials": "HR: hr@acme.io / Hr@12345 (worked). Employee: employee@acme.io / Employee@123 (used for 403 negative test, worked).",
+  "seed_data_creation": "Tests create/wipe their own DEMO* employees (5×1 and 50×2). Final state: wiped clean.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration14_attendance_demo.py covers live-board (HR+403), monthly register (grid codes), seeder (role-gate, seed 5x1, idempotency dup-key, 50x2 perf <90s, wipe, param validation). Seed 50x2 completed in ~1-3s on this box. All endpoints stable.",
+  "perf_notes": "seed count=50 years=2 completes well under 90s. count=5 years=1 returns in ~1s."
+}

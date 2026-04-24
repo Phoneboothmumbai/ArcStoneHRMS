@@ -134,11 +134,14 @@ async def seed_employees(
         emp = Employee(
             id=emp_id, company_id=cid, employee_code=emp_code,
             name=f"{fn} {ln}", email=emp_email, phone=f"+91{random.randint(7000000000, 9999999999)}",
-            job_title=title, department_name=dept,
+            job_title=title,
             employee_type=emp_type, role_in_company=role,
             joined_on=doj + "T00:00:00+00:00", status="active",
             manager_id=random.choice(managers)["id"] if managers and i > 5 and random.random() < 0.7 else None,
         ).model_dump()
+        # Denormalized fields (Employee model uses extra="ignore"; store names for quick reads on live-board)
+        emp["department_name"] = dept
+        emp["branch_name"] = city
         new_employees.append(emp)
         if role == "branch_manager":
             managers.append(emp)
@@ -256,6 +259,7 @@ async def seed_employees(
             payslip_batch.append({
                 "id": uid(), "company_id": cid, "employee_id": emp_id,
                 "employee_name": emp_name, "employee_code": emp["employee_code"],
+                "run_id": f"demo-run-{ym}",
                 "period_month": ym, "paid_days": paid_days, "lop_days": 0,
                 "actual_gross": gross, "total_deductions": deductions,
                 "actual_net": net, "tds": round(gross * 0.08, 2),
@@ -326,21 +330,21 @@ async def seed_employees(
 
     if attendance_batch:
         for chunk in _chunks(attendance_batch, 2000):
-            await db.attendance.insert_many(chunk)
+            await db.attendance.insert_many(chunk, ordered=False)
         stats["attendance"] = len(attendance_batch)
     if leave_batch:
-        await db.leave_requests.insert_many(leave_batch)
+        await db.leave_requests.insert_many(leave_batch, ordered=False)
         stats["leaves"] = len(leave_batch)
     if payslip_batch:
-        await db.payslips.insert_many(payslip_batch)
+        await db.payslips.insert_many(payslip_batch, ordered=False)
         stats["payslips"] = len(payslip_batch)
     if salary_batch:
-        await db.employee_salaries.insert_many(salary_batch)
+        await db.employee_salaries.insert_many(salary_batch, ordered=False)
     if goal_batch:
-        await db.goals.insert_many(goal_batch)
+        await db.goals.insert_many(goal_batch, ordered=False)
         stats["goals"] = len(goal_batch)
     if ticket_batch:
-        await db.tickets.insert_many(ticket_batch)
+        await db.tickets.insert_many(ticket_batch, ordered=False)
         stats["tickets"] = len(ticket_batch)
 
     return {

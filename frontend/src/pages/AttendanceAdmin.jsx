@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppShell, { SectionCard } from "../components/AppShell";
 import { api, formatApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -8,29 +8,348 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Plus, PencilSimple, Trash, MapPin } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, MapPin, CalendarBlank, Users, Database, Trash as TrashIcon, Warning, CheckCircle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 const WEEKDAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
+const TABS = [
+  { k:"today",       l:"Today's Board" },
+  { k:"register",    l:"Monthly Register" },
+  { k:"shifts",      l:"Shifts" },
+  { k:"assignments", l:"Shift assignments" },
+  { k:"sites",       l:"Work sites (geo-fence)" },
+  { k:"demo",        l:"Demo data (HR)" },
+];
+
 export default function AttendanceAdmin() {
-  const [tab, setTab] = useState("shifts");
+  const [tab, setTab] = useState("today");
   return (
     <AppShell title="Attendance Administration">
-      <div className="flex items-center gap-1 mb-5 border-b border-zinc-200">
-        {[{k:"shifts",l:"Shifts"},{k:"assignments",l:"Shift assignments"},{k:"sites",l:"Work sites (geo-fence)"}].map(t=>(
+      <div className="flex items-center gap-1 mb-5 border-b border-zinc-200 overflow-x-auto">
+        {TABS.map(t=>(
           <button key={t.k} onClick={()=>setTab(t.k)}
             data-testid={`attadmin-tab-${t.k}`}
-            className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab===t.k?"border-zinc-950 text-zinc-950 font-medium":"border-transparent text-zinc-500 hover:text-zinc-900"}`}>{t.l}</button>
+            className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors whitespace-nowrap ${tab===t.k?"border-zinc-950 text-zinc-950 font-medium":"border-transparent text-zinc-500 hover:text-zinc-900"}`}>{t.l}</button>
         ))}
       </div>
-      {tab === "shifts" && <ShiftsTab/>}
+      {tab === "today"       && <TodayBoardTab/>}
+      {tab === "register"    && <MonthlyRegisterTab/>}
+      {tab === "shifts"      && <ShiftsTab/>}
       {tab === "assignments" && <AssignmentsTab/>}
-      {tab === "sites" && <SitesTab/>}
+      {tab === "sites"       && <SitesTab/>}
+      {tab === "demo"        && <DemoDataTab/>}
     </AppShell>
   );
 }
 
+// ============================== TODAY'S BOARD ==============================
+const STATUS_STYLE = {
+  present:  { bg:"bg-emerald-50",  text:"text-emerald-700", border:"border-emerald-200", label:"Present" },
+  late:     { bg:"bg-amber-50",    text:"text-amber-700",   border:"border-amber-200",   label:"Late" },
+  half_day: { bg:"bg-orange-50",   text:"text-orange-700",  border:"border-orange-200",  label:"Half-day" },
+  absent:   { bg:"bg-red-50",      text:"text-red-700",     border:"border-red-200",     label:"Absent" },
+  on_leave: { bg:"bg-violet-50",   text:"text-violet-700",  border:"border-violet-200",  label:"On leave" },
+  holiday:  { bg:"bg-sky-50",      text:"text-sky-700",     border:"border-sky-200",     label:"Holiday" },
+  week_off: { bg:"bg-zinc-100",    text:"text-zinc-600",    border:"border-zinc-200",    label:"Week off" },
+};
+
+function StatusPill({ s }) {
+  const st = STATUS_STYLE[s] || STATUS_STYLE.absent;
+  return <Badge variant="outline" className={`text-[10px] ${st.bg} ${st.text} ${st.border}`}>{st.label}</Badge>;
+}
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  try { const d = new Date(iso); return d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }); } catch { return "—"; }
+}
+
+function TodayBoardTab() {
+  const [date, setDate] = useState(new Date().toISOString().slice(0,10));
+  const [data, setData] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get(`/attendance/live-board?on_date=${date}`);
+      setData(r.data);
+    } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [date]);
+
+  const rows = data?.rows || [];
+  const counts = data?.counts || {};
+  const filtered = useMemo(() => rows.filter(r => {
+    if (filter !== "all" && r.status !== filter) return false;
+    if (q && !(r.employee_name?.toLowerCase().includes(q.toLowerCase()) || r.employee_code?.toLowerCase().includes(q.toLowerCase()))) return false;
+    return true;
+  }), [rows, filter, q]);
+
+  const kpis = [
+    { k:"present",  label:"Present",   color:"text-emerald-700" },
+    { k:"late",     label:"Late",      color:"text-amber-700" },
+    { k:"half_day", label:"Half-day",  color:"text-orange-700" },
+    { k:"on_leave", label:"On leave",  color:"text-violet-700" },
+    { k:"absent",   label:"Absent",    color:"text-red-700" },
+    { k:"wfh",      label:"WFH",       color:"text-sky-700" },
+    { k:"holiday",  label:"Holiday",   color:"text-sky-700" },
+    { k:"week_off", label:"Week off",  color:"text-zinc-600" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title={`Live attendance · ${date}`}
+        subtitle={loading ? "Loading…" : `${rows.length} employees tracked`}
+        testid="section-today-board"
+        action={
+          <div className="flex items-center gap-2">
+            <Input type="date" className="w-40" value={date} onChange={e=>setDate(e.target.value)} data-testid="today-board-date"/>
+            <Button size="sm" variant="outline" onClick={load} data-testid="today-board-refresh">Refresh</Button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
+          {kpis.map(k => (
+            <button key={k.k}
+              onClick={()=>setFilter(f => f===k.k ? "all" : k.k)}
+              data-testid={`today-board-kpi-${k.k}`}
+              className={`text-left p-3 rounded border transition-colors ${filter===k.k?"border-zinc-950 bg-zinc-50":"border-zinc-200 hover:border-zinc-400"}`}
+            >
+              <div className={`text-xl font-semibold ${k.color}`}>{counts[k.k] ?? 0}</div>
+              <div className="text-[11px] text-zinc-500 uppercase tracking-wide">{k.label}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 mb-3">
+          <Input placeholder="Search by name or code…" className="max-w-xs" value={q} onChange={e=>setQ(e.target.value)} data-testid="today-board-search"/>
+          <Badge variant="outline" className="text-[10px]">{filter === "all" ? "All statuses" : STATUS_STYLE[filter]?.label}</Badge>
+          {filter !== "all" && <button className="text-xs text-zinc-500 underline" onClick={()=>setFilter("all")}>Clear</button>}
+          <div className="ml-auto text-xs text-zinc-500">{filtered.length} shown</div>
+        </div>
+
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Employee</TableHead>
+            <TableHead>Department</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Check-in</TableHead>
+            <TableHead>Check-out</TableHead>
+            <TableHead>Hours</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {filtered.length === 0 && (
+              <TableRow><TableCell colSpan={7} className="text-center text-zinc-500 py-10">No employees match this filter.</TableCell></TableRow>
+            )}
+            {filtered.map(r => (
+              <TableRow key={r.employee_id} data-testid={`today-board-row-${r.employee_code}`}>
+                <TableCell>
+                  <div className="font-medium text-sm">{r.employee_name}</div>
+                  <div className="text-xs text-zinc-500">{r.employee_code} · {r.job_title || "—"}</div>
+                </TableCell>
+                <TableCell className="text-sm">{r.department_name || "—"}</TableCell>
+                <TableCell><Badge variant="outline" className="text-[10px] uppercase">{r.employee_type}</Badge></TableCell>
+                <TableCell>
+                  <StatusPill s={r.status}/>
+                  {r.leave_type && <span className="ml-1 text-[10px] text-zinc-500 capitalize">({r.leave_type})</span>}
+                </TableCell>
+                <TableCell className="font-mono-alt text-xs">{fmtTime(r.check_in)}{r.is_late && <span className="ml-1 text-amber-600">late</span>}</TableCell>
+                <TableCell className="font-mono-alt text-xs">{fmtTime(r.check_out)}</TableCell>
+                <TableCell className="font-mono-alt text-xs">{r.hours != null ? r.hours.toFixed(2) : "—"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ============================== MONTHLY REGISTER ==============================
+const CODE_STYLE = {
+  P:   "bg-emerald-100 text-emerald-700",
+  "P*":"bg-amber-100 text-amber-700",
+  HD:  "bg-orange-100 text-orange-700",
+  A:   "bg-red-100 text-red-700",
+  L:   "bg-violet-100 text-violet-700",
+  H:   "bg-sky-100 text-sky-700",
+  WO:  "bg-zinc-100 text-zinc-500",
+};
+
+function MonthlyRegisterTab() {
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0,7));
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get(`/attendance/register?month=${month}`);
+      setData(r.data);
+    } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [month]);
+
+  const dates = data?.dates || [];
+  const rows = (data?.rows || []).filter(r =>
+    !q || r.employee_name?.toLowerCase().includes(q.toLowerCase()) || r.employee_code?.toLowerCase().includes(q.toLowerCase())
+  );
+
+  return (
+    <SectionCard
+      title={`Monthly register · ${month}`}
+      subtitle={loading ? "Loading…" : `${rows.length} employees × ${dates.length} days — P=Present · P*=Late · HD=Half-day · A=Absent · L=Leave · H=Holiday · WO=Week-off`}
+      testid="section-monthly-register"
+      action={
+        <div className="flex items-center gap-2">
+          <Input type="month" className="w-40" value={month} onChange={e=>setMonth(e.target.value)} data-testid="register-month"/>
+          <Input placeholder="Search…" className="w-44" value={q} onChange={e=>setQ(e.target.value)}/>
+        </div>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-zinc-200">
+              <th className="text-left px-2 py-2 sticky left-0 bg-white z-10 min-w-[180px]">Employee</th>
+              {dates.map(d => (
+                <th key={d} className="px-1 py-2 text-center font-mono-alt text-[10px] text-zinc-500">{d.slice(-2)}</th>
+              ))}
+              <th className="px-2 py-2 text-right">P</th>
+              <th className="px-2 py-2 text-right">A</th>
+              <th className="px-2 py-2 text-right">L</th>
+              <th className="px-2 py-2 text-right">HD</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={dates.length + 5} className="text-center text-zinc-500 py-10">No data.</td></tr>
+            )}
+            {rows.map(r => (
+              <tr key={r.employee_id} className="border-b border-zinc-100 hover:bg-zinc-50" data-testid={`register-row-${r.employee_code}`}>
+                <td className="px-2 py-1 sticky left-0 bg-white z-10">
+                  <div className="font-medium">{r.employee_name}</div>
+                  <div className="text-[10px] text-zinc-500">{r.employee_code}</div>
+                </td>
+                {r.days.map(d => (
+                  <td key={d.date} className="px-0.5 py-1 text-center">
+                    <span className={`inline-block px-1 py-0.5 rounded font-mono-alt text-[10px] ${CODE_STYLE[d.code] || "bg-zinc-50 text-zinc-400"}`}>{d.code}</span>
+                  </td>
+                ))}
+                <td className="px-2 py-1 text-right font-semibold text-emerald-700">{r.summary.present}</td>
+                <td className="px-2 py-1 text-right font-semibold text-red-700">{r.summary.absent}</td>
+                <td className="px-2 py-1 text-right font-semibold text-violet-700">{r.summary.leave}</td>
+                <td className="px-2 py-1 text-right font-semibold text-orange-700">{r.summary.half_day}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SectionCard>
+  );
+}
+
+// ============================== DEMO DATA ==============================
+function DemoDataTab() {
+  const [count, setCount] = useState(50);
+  const [years, setYears] = useState(2);
+  const [reset, setReset] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [wiping, setWiping] = useState(false);
+
+  const seed = async () => {
+    if (!window.confirm(`Seed ${count} demo employees × ${years} years of data?\nThis inserts thousands of records. Reset=${reset}.`)) return;
+    setRunning(true); setResult(null);
+    try {
+      const r = await api.post(`/demo/seed-employees?count=${count}&years=${years}&reset=${reset}`, null, { timeout: 180000 });
+      setResult(r.data);
+      toast.success(`Seeded ${r.data.stats.employees} demo employees`);
+    } catch (e) { toast.error(formatApiError(e?.response?.data?.detail) || "Seed failed (timeout?)"); }
+    finally { setRunning(false); }
+  };
+
+  const wipe = async () => {
+    if (!window.confirm("Delete ALL DEMO-prefixed employees and their data? This cannot be undone.")) return;
+    setWiping(true);
+    try {
+      const r = await api.post("/demo/wipe-demo");
+      toast.success(`Removed ${r.data.removed} demo employees`);
+      setResult(null);
+    } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
+    finally { setWiping(false); }
+  };
+
+  return (
+    <SectionCard
+      title="Demo data seeder"
+      subtitle="One-click generate realistic employees + 2 years of attendance, leaves, payslips, goals & tickets so you can kick every module's tyres."
+      testid="section-demo-data"
+    >
+      <div className="rounded border border-amber-200 bg-amber-50 p-3 mb-5 flex gap-2 text-sm text-amber-800">
+        <Warning size={18} weight="fill" className="mt-0.5 flex-none"/>
+        <div>
+          <b>Staging only.</b> Inserts thousands of rows (50 × 500 days ≈ 25 000 attendance records). Demo employees are prefixed <code className="text-xs bg-white px-1 rounded">DEMO####</code> and can be wiped at any time.
+          Their login password is <code className="text-xs bg-white px-1 rounded">Demo@12345</code>, emails <code className="text-xs bg-white px-1 rounded">demo{"{N}"}@acme.io</code>.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div>
+          <Label>Employees</Label>
+          <Input type="number" min={1} max={500} className="mt-1" value={count} onChange={e=>setCount(Number(e.target.value))} data-testid="demo-count"/>
+        </div>
+        <div>
+          <Label>Years of history</Label>
+          <Input type="number" min={1} max={5} className="mt-1" value={years} onChange={e=>setYears(Number(e.target.value))} data-testid="demo-years"/>
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={reset} onChange={e=>setReset(e.target.checked)} data-testid="demo-reset"/>
+            Wipe existing demo data first
+          </label>
+        </div>
+        <div className="flex items-end gap-2">
+          <Button onClick={seed} disabled={running || wiping} data-testid="demo-seed-btn" className="gap-1.5">
+            <Database size={14} weight="bold"/>{running ? "Seeding…" : "Seed demo data"}
+          </Button>
+          <Button variant="outline" onClick={wipe} disabled={wiping || running} data-testid="demo-wipe-btn" className="gap-1.5 text-red-600">
+            <TrashIcon size={14}/>{wiping ? "Wiping…" : "Wipe demo"}
+          </Button>
+        </div>
+      </div>
+
+      {running && (
+        <div className="text-xs text-zinc-500 italic mb-3">This can take 1–2 minutes for 50 employees × 2 years. Please keep the tab open.</div>
+      )}
+
+      {result && (
+        <div className="rounded border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-center gap-2 text-emerald-800 mb-3 font-medium"><CheckCircle size={18} weight="fill"/> Seed complete</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            {Object.entries(result.stats).map(([k,v]) => (
+              <div key={k} className="bg-white rounded px-3 py-2 border border-emerald-100">
+                <div className="text-[11px] uppercase text-zinc-500 tracking-wide">{k.replace(/_/g," ")}</div>
+                <div className="text-lg font-semibold text-zinc-900">{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-zinc-600 mt-3">{result.login_hint}</div>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+// ============================== SHIFTS (existing) ==============================
 function ShiftsTab() {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
