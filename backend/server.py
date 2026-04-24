@@ -72,6 +72,12 @@ from routers.helpdesk_routes import (
     tickets_router as tickets_router,
     posh_router as posh_router,
 )
+from routers.procurement_routes import (
+    vendors_router as procurement_vendors_router,
+    rfq_router as procurement_rfq_router,
+    po_router as procurement_po_router,
+    portal_router as procurement_portal_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -164,6 +170,10 @@ app.include_router(reports_router)
 app.include_router(ticket_categories_router)
 app.include_router(tickets_router)
 app.include_router(posh_router)
+app.include_router(procurement_vendors_router)
+app.include_router(procurement_rfq_router)
+app.include_router(procurement_po_router)
+app.include_router(procurement_portal_router)
 
 app.add_middleware(
     CORSMiddleware,

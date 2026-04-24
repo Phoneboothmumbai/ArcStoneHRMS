@@ -480,6 +480,9 @@ async def seed_demo_data() -> None:
     await _ensure_mod("ats", status="active")
     await _ensure_mod("analytics", status="active")
     await _ensure_mod("helpdesk", status="active")
+    await _ensure_mod("expense", status="active")
+    await _ensure_mod("assets", status="active")
+    await _ensure_mod("travel", status="active")
     log.info("Module entitlements seeded for company=%s", company_id)
 
     # 8. Seed default onboarding template for ACME (idempotent)

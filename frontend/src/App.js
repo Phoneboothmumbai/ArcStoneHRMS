@@ -44,6 +44,11 @@ import RecruitmentOverview, {
 } from "./pages/Recruitment";
 import ReportsOverview, { CompensationReport, ReportBuilder } from "./pages/Reports";
 import Helpdesk, { TicketCategories, POSH } from "./pages/Helpdesk";
+import ProcurementOverview, {
+  VendorsPage, RFQsPage, RFQDetail,
+  PurchaseOrdersPage, PurchaseOrderDetail,
+} from "./pages/Procurement";
+import VendorPortal from "./pages/VendorPortal";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -64,6 +69,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/vendor-portal" element={<VendorPortal />} />
           <Route path="/app" element={<RoleRedirect />} />
 
           <Route path="/app/platform" element={<ProtectedRoute roles={["super_admin"]}><PlatformDashboard /></ProtectedRoute>} />
@@ -113,6 +119,13 @@ function App() {
           <Route path="/app/helpdesk" element={<ProtectedRoute><Helpdesk /></ProtectedRoute>} />
           <Route path="/app/helpdesk/categories" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><TicketCategories /></ProtectedRoute>} />
           <Route path="/app/posh" element={<ProtectedRoute><POSH /></ProtectedRoute>} />
+
+          <Route path="/app/procurement" element={<ProtectedRoute><ProcurementOverview /></ProtectedRoute>} />
+          <Route path="/app/procurement/vendors" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><VendorsPage /></ProtectedRoute>} />
+          <Route path="/app/procurement/rfqs" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><RFQsPage /></ProtectedRoute>} />
+          <Route path="/app/procurement/rfqs/:id" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><RFQDetail /></ProtectedRoute>} />
+          <Route path="/app/procurement/purchase-orders" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><PurchaseOrdersPage /></ProtectedRoute>} />
+          <Route path="/app/procurement/purchase-orders/:id" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><PurchaseOrderDetail /></ProtectedRoute>} />
           <Route path="/app/org-tree" element={<ProtectedRoute><OrgTree /></ProtectedRoute>} />
 
           <Route path="/app/manager" element={<ProtectedRoute roles={["branch_manager", "sub_manager", "assistant_manager"]}><ManagerDashboard /></ProtectedRoute>} />

@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 13 — Procurement & Vendor Marketplace + Vendor Portal. Backend: 31/31 tests pass. Covered modules activation (all 11 active for ACME: base_hrms, procurement, onboarding, payroll, performance, ats, analytics, helpdesk, expense, assets, travel), vendor CRUD (auto V-#### + portal_token, list strips token, HR detail exposes it, PATCH, rotate-token), vendor ratings rollup (avg+count), RFQ sealed-bid lifecycle (auto RFQ-YYYY-####, draft→open→closed, invite dedupe, invalid award-via-status rejected), sealed-quote hiding (HR sees 0 quotes pre-close, sealed_count>0), quotes unseal on close, compare matrix with vendors/matrix/lowest_total/savings_pct, award→auto-draft PO, PO chain (submit-for-approval→approve→send→receive partial/full→invoice→pay; pay-before-invoice 400), vendor-portal auth via X-Vendor-Token (401 on missing/invalid, 403 on blacklisted), portal /me strips portal_token, portal /rfqs hides target_unit_price, portal quote submit sets sealed=true, portal cannot submit to closed RFQ, portal POs + acknowledge, module-gating (disable procurement → 402 on /api/procurement/vendors while /api/vendor-portal/* still 200), tenant isolation on portal rfqs. Frontend: Procurement overview renders (4 stat cards + 3 tiles + Recent POs), RFQ list + RFQ detail render with Items table, Invited vendors table, and Quote comparison matrix (lowest row emerald shaded, 'Lowest' badge shown). Vendor Portal standalone /vendor-portal login page renders with token input. FOUND 2 FRONTEND BUGS: (1) VendorsPage crashes with 'Cannot read properties of undefined (reading replace)' at line 144 — v.kind.replace('_',' ') blows up when any vendor has null/missing kind; (2) RFQ detail invited_vendors table emits duplicate-key React warning because cross-test-run invites accumulate (upserts don't dedupe once the list view keys on vendor_id).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/modules/mine", "issue": "Response shape is {company_id, role, active_modules[]} — docs in review_request implied a flat list. Not a bug, just spec-doc drift; updated test handles both."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Procurement.jsx VendorsPage (line ~144)", "issue": "Uncaught TypeError 'Cannot read properties of undefined (reading replace)'. v.kind.replace('_',' ') crashes when any existing/seeded vendor row has kind null/undefined. Makes the /app/procurement/vendors page blank (error boundary would at least show something but there is none). Repro: login hr@acme.io → /app/procurement/vendors.", "selector": "/app/procurement/vendors table row — {v.kind.replace('_',' ')}", "priority": "HIGH"},
+      {"component": "Procurement.jsx RFQDetail invited_vendors table", "issue": "React 'two children with the same key' warning for vendor_id used as key. Invited_vendors list contains repeated entries when vendors are re-invited across sessions — invite endpoint dedupes on vendor_id server-side via set comparison, but historical seed data or concurrent invites can still produce dupes. Fix: use iv.vendor_id + iv.invited_at as composite key OR dedupe array in map.", "selector": "RFQDetail InvitedVendors Table row", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "ModulesContext hydration (carry-over from iter 9/10/11/12)", "issue": "Still unfixed — HR must page.reload() once after login for the Procurement chip + sidebar to appear. Test harness applied reload() workaround.", "affected_selectors": ["sidebar Procurement module chip"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration13_procurement.py",
+    "/app/test_reports/pytest/iteration_13.xml"
+  ],
+  "action_items": [
+    "FIX VendorsPage crash: add null-guard — replace v.kind.replace('_',' ') with (v.kind || '—').replace('_',' ') at /app/frontend/src/pages/Procurement.jsx:144. Same pattern check: line 99 p.status.replace, line 481/523 po.status.replace — those are safe (status required) but consider defensive fallbacks for older docs. Without this fix the entire Vendors page is unusable.",
+    "FIX RFQDetail duplicate-key: change invited_vendors map key to `${iv.vendor_id}-${iv.invited_at}` or dedupe on render.",
+    "Fix long-pending ModulesContext race (iter 9-12 carry-over) — 3-line patch already documented in earlier reports. Still requires post-login reload on frontend tests.",
+    "Consider adding React Error Boundaries around module pages so a single bad field doesn't blank the whole screen (also applies to future modules)."
+  ],
+  "critical_code_review_comments": [
+    "procurement_routes.py _seq() uses count_documents+1 for RFQ-YYYY-#### and PO-YYYY-#### — race-prone under concurrent creates (same flaw flagged for ATS JR# in iter 12). Switch to atomic counters collection with findOneAndUpdate($inc).",
+    "create_vendor() uses count_documents+1 for V-#### — same race risk.",
+    "rate_vendor() roll-up computes new_avg from current vendor.rating * ratings_count — susceptible to race under concurrent ratings. Consider $inc on ratings_count + store sum separately, then compute avg.",
+    "award_rfq() uses float() on quote unit_price / rfq quantity — no precision safeguards for currency. Consider Decimal or round consistently.",
+    "portal_submit_quote: Quote sealed=True is hardcoded at submit; there's no mechanism to re-seal when revised. Currently revised quotes keep the original sealed state via the $set — verify revised quote stays sealed (current code DOES NOT reset sealed on revision, so if HR manually closed+reopened an RFQ the revised quotes would stay unsealed). Consider explicitly re-setting sealed=True on revise-before-deadline.",
+    "portal_submit_quote rejects 'withdrawn' quotes? No — existing status check only blocks ['awarded','lost']. Vendor who withdraws can re-submit silently, quietly resurrecting the quote to 'revised'. Probably fine but worth a product decision.",
+    "set_rfq_status does not validate forward-only transitions (e.g., closed → open is accepted and resets sealed state). Add state-machine guard.",
+    "Procurement.jsx is growing large with default + sub-pages (VendorsPage, RFQsPage, RFQDetail, POsPage, PODetail). Likely approaching 700 LOC — split per File Size guideline.",
+    "VendorsPage has NO null-guard on v.kind — caught a live crash in this iteration's testing (see frontend_issues.ui_bugs[0])."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration13_procurement.py (NEW — 31 tests)"
+  ],
+  "success_rate": {"backend": "100% (31/31)", "frontend": "~80% — Overview, RFQ list, RFQ detail (w/ compare matrix), Vendor Portal login all render; VendorsPage BROKEN due to null-kind crash"},
+  "test_credentials": "hr@acme.io/Hr@12345 (company_admin), employee@acme.io/Employee@123, admin@hrms.io/Admin@123 — all verified working",
+  "seed_data_creation": "Created persistent ACME tenant data: 2 vendors (TEST_Vendor_Alpha, TEST_Vendor_Beta), 1 RFQ (TEST RFQ Laptops → awarded), 2 quotes (1 awarded, 1 lost), 1 PO (auto-drafted from award → taken through full chain to 'paid' status), 2 vendor ratings (5★+3★ on TEST_Vendor_Alpha). TEST_ prefix used for cleanup.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 13 regression suite at /app/backend/tests/test_iteration13_procurement.py (31 tests, ~8s). Test uses module-scoped shared_state dict passed between ordered test classes (TestModules→TestVendors→TestVendorRatings→TestRFQ→TestVendorPortal→TestRFQCloseCompareAward→TestPOChain→TestPortalGuards→TestModuleGating→TestTenantIsolation). GET /api/modules/mine returns {company_id, role, active_modules[]} NOT a flat list. Vendor portal auth uses X-Vendor-Token header OR ?token= query. Blacklisted/suspended vendors get 403, invalid/missing token 401. Quotes sealed until RFQ status=closed OR deadline<now. PO chain transitions enforced (pay requires invoiced, invoice requires received/partially_received, send requires approved/draft, receive requires sent/acknowledged/in_transit/partially_received). Module disable/enable payload shape: POST /api/modules/company/{cid}/{disable|enable} body {module_id:'procurement'}. Vendor-portal routes intentionally NOT gated by requires_module — confirmed working under disabled procurement. CRITICAL KNOWN FRONTEND BUG: VendorsPage crashes on null vendor.kind — do not assume the page renders until main agent patches it.",
+  "rca of the issue": "Frontend bug RCA — VendorsPage.jsx line 144 renders {v.kind.replace('_',' ')} without null-guard. One or more historic vendor docs in ACME tenant have no 'kind' field (or it was explicitly null). React's render throws TypeError which propagates to error boundary-less App and leaves the page blank (only console pageerror). Reproduction: login hr@acme.io → navigate /app/procurement/vendors → page shows only shell; console shows 'Cannot read properties of undefined (reading replace)'. Mitigation: change to `(v.kind || '—').replace('_',' ')` — 1-line fix. Same pattern should be audited for v.category (used elsewhere). Also recommend wrapping module pages in <ErrorBoundary> so a single bad field does not take down the route."
+}
