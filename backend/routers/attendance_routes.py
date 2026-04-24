@@ -262,3 +262,79 @@ async def monthly_register(
         row["summary"] = {"present": p, "absent": a_count, "leave": l_count, "holidays": h_count, "week_off": wo_count, "half_day": hd_count}
         out.append(row)
     return {"month": month, "dates": dates, "rows": out}
+
+
+@router.get("/live-board")
+async def live_board(user=Depends(get_current_user), on_date: Optional[str] = Query(None)):
+    """Live daily board for HR: all employees × status for a single date."""
+    db = get_db()
+    cid = user.get("company_id")
+    if user["role"] not in ("super_admin", "company_admin", "country_head",
+                             "region_head", "branch_manager", "sub_manager", "assistant_manager"):
+        raise HTTPException(403, "HR / Manager only")
+    d = on_date or _today()
+    try:
+        dt = date.fromisoformat(d)
+    except Exception:
+        raise HTTPException(400, "on_date must be YYYY-MM-DD")
+    wd = dt.weekday()
+
+    employees = await db.employees.find(
+        {"company_id": cid, "status": {"$ne": "terminated"}}, {"_id": 0},
+    ).to_list(5000)
+    att_rows = await db.attendance.find(
+        {"company_id": cid, "date": d}, {"_id": 0},
+    ).to_list(5000)
+    att_map = {a["employee_id"]: a for a in att_rows}
+    holidays = {h["date"]: h for h in await db.holidays.find(
+        {"company_id": cid, "date": d, "is_active": True, "kind": "mandatory"},
+        {"_id": 0},
+    ).to_list(10)}
+    leaves = await db.leave_requests.find(
+        {"company_id": cid, "status": "approved",
+         "start_date": {"$lte": d + "T23:59:59"}, "end_date": {"$gte": d}},
+        {"_id": 0},
+    ).to_list(500)
+    leave_by_emp = {lr["employee_id"]: lr for lr in leaves}
+
+    rows = []
+    counts = {"present": 0, "absent": 0, "late": 0, "on_leave": 0,
+              "holiday": 0, "week_off": 0, "wfh": 0, "half_day": 0}
+    for emp in employees:
+        rec = att_map.get(emp["id"])
+        leave = leave_by_emp.get(emp["id"])
+        status = "absent"
+        if d in holidays:
+            status = "holiday"; counts["holiday"] += 1
+        elif wd == 6:
+            status = "week_off"; counts["week_off"] += 1
+        elif rec:
+            if rec.get("is_half_day"):
+                status = "half_day"; counts["half_day"] += 1
+            elif rec.get("is_late"):
+                status = "late"; counts["late"] += 1; counts["present"] += 1
+            else:
+                status = "present"; counts["present"] += 1
+            if emp.get("employee_type") == "wfh" or (rec.get("location") or {}).get("kind") == "wfh":
+                counts["wfh"] += 1
+        elif leave:
+            status = "on_leave"; counts["on_leave"] += 1
+        else:
+            counts["absent"] += 1
+        rows.append({
+            "employee_id": emp["id"],
+            "employee_name": emp["name"],
+            "employee_code": emp.get("employee_code"),
+            "job_title": emp.get("job_title"),
+            "department_name": emp.get("department_name"),
+            "branch_name": emp.get("branch_name"),
+            "employee_type": emp.get("employee_type", "wfo"),
+            "status": status,
+            "check_in": rec.get("check_in") if rec else None,
+            "check_out": rec.get("check_out") if rec else None,
+            "hours": rec.get("hours") if rec else None,
+            "is_late": bool(rec and rec.get("is_late")),
+            "leave_type": leave.get("leave_type") if leave else None,
+        })
+    return {"date": d, "counts": counts, "total": len(rows), "rows": rows}
+

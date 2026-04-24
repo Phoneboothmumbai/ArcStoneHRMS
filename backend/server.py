@@ -78,6 +78,7 @@ from routers.procurement_routes import (
     po_router as procurement_po_router,
     portal_router as procurement_portal_router,
 )
+from routers.demo_data_routes import router as demo_data_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -174,6 +175,7 @@ app.include_router(procurement_vendors_router)
 app.include_router(procurement_rfq_router)
 app.include_router(procurement_po_router)
 app.include_router(procurement_portal_router)
+app.include_router(demo_data_router)
 
 app.add_middleware(
     CORSMiddleware,
