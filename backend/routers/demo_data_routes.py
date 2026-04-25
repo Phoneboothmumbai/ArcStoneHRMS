@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_roles
 from db import get_db
 from models import Employee, User, now_iso, uid
+from models_payroll import EmployeeSalary
+from routers.payroll_routes import _compute_lines, _compute_totals
 
 router = APIRouter(prefix="/api/demo", tags=["demo-data"])
 
@@ -174,6 +176,24 @@ async def seed_employees(
     cat_id = cat["id"] if cat else None
     cat_name = cat["name"] if cat else None
 
+    # Load active salary components ONCE — reused for every demo salary so that
+    # payroll-run compute can produce real payslip lines.
+    components = await db.salary_components.find(
+        {"company_id": cid, "is_active": True}, {"_id": 0}
+    ).to_list(200)
+    DEFAULT_STRUCT = {
+        "BASIC": ("pct_of_ctc", 50.0), "HRA": ("pct_of_basic", 40.0),
+        "SPECIAL": ("pct_of_ctc", 20.0), "CONV": ("fixed", 1600.0),
+        "MEDICAL": ("fixed", 1250.0), "LTA": ("pct_of_ctc", 5.0),
+        "PF": ("statutory", 0), "ESIC": ("statutory", 0),
+        "PT": ("statutory", 0), "EMPF": ("statutory", 0),
+    }
+    structure_lines = [
+        {"component_id": c["id"], "component_code": c["code"], "component_name": c["name"],
+         "calculation_type": DEFAULT_STRUCT[c["code"]][0], "value": DEFAULT_STRUCT[c["code"]][1]}
+        for c in components if c["code"] in DEFAULT_STRUCT
+    ]
+
     for emp in new_employees:
         emp_id = emp["id"]
         emp_name = emp["name"]
@@ -181,18 +201,30 @@ async def seed_employees(
         emp_start = max(doj, start_date)
         # Pick a random base salary
         ctc_annual = random.choice([600000, 900000, 1200000, 1500000, 1800000, 2400000, 3000000, 4500000])
-        monthly_gross = ctc_annual / 12
-        basic = round(monthly_gross * 0.45, 2)
-        hra = round(monthly_gross * 0.25, 2)
-        special = round(monthly_gross - basic - hra, 2)
-        salary_batch.append({
-            "id": uid(), "company_id": cid, "employee_id": emp_id,
-            "ctc_annual": ctc_annual, "basic": basic, "hra": hra,
-            "special_allowance": special, "currency": "INR",
-            "effective_from": emp["joined_on"][:10],
-            "is_current": True,
-            "created_at": now_iso(), "updated_at": now_iso(),
-        })
+        if components and structure_lines:
+            sal_lines = _compute_lines(ctc_annual, components, structure_lines, {})
+            gross, net = _compute_totals(sal_lines)
+            sal_doc = EmployeeSalary(
+                company_id=cid, employee_id=emp_id,
+                employee_name=emp_name, employee_code=emp["employee_code"],
+                effective_from=emp["joined_on"][:10], ctc_annual=ctc_annual,
+                gross_monthly=gross, net_monthly_estimate=net,
+                lines=sal_lines, tax_regime="new", is_current=True,
+            ).model_dump()
+        else:
+            # Fallback when components not seeded (rare) — minimal doc
+            monthly_gross = ctc_annual / 12
+            sal_doc = {
+                "id": uid(), "company_id": cid, "employee_id": emp_id,
+                "employee_name": emp_name, "employee_code": emp["employee_code"],
+                "ctc_annual": ctc_annual, "gross_monthly": monthly_gross,
+                "net_monthly_estimate": monthly_gross * 0.82,
+                "currency": "INR", "effective_from": emp["joined_on"][:10],
+                "is_current": True, "lines": [], "tax_regime": "new",
+                "created_at": now_iso(), "updated_at": now_iso(),
+            }
+        salary_batch.append(sal_doc)
+        monthly_gross = sal_doc["gross_monthly"]
 
         # Attendance — iterate working days only
         cur = emp_start
