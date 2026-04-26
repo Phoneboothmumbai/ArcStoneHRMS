@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#09090b"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "io.arcstone.hrms",
@@ -23,7 +25,11 @@
         "NSLocationAlwaysUsageDescription": "Arcstone tracks your work location between check-in and check-out for attendance compliance.",
         "NSCameraUsageDescription": "Arcstone needs camera access to take your check-in selfie.",
         "NSFaceIDUsageDescription": "Arcstone uses Face ID for quick and secure sign-in.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -50,10 +56,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "https://people-partner-cloud.preview.emergentagent.com",
-      "eas": {
-        "projectId": "REPLACE-WITH-YOUR-EAS-PROJECT-ID"
-      }
+      "apiBaseUrl": "https://people-partner-cloud.preview.emergentagent.com"
     },
     "plugins": [
       [
@@ -78,6 +81,7 @@
         }
       ],
       "expo-local-authentication"
-    ]
+    ],
+    "owner": "phonebooth"
   }
 }
