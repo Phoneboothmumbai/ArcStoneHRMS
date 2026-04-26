@@ -53,6 +53,8 @@ import HRAlerts from "./pages/HRAlerts";
 import LoanRequests from "./pages/LoanRequests";
 import Insurance from "./pages/Insurance";
 import Compliance from "./pages/Compliance";
+import OrgChart from "./pages/OrgChart";
+import Branches from "./pages/Branches";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -148,6 +150,8 @@ function App() {
           <Route path="/app/loan-requests" element={<ProtectedRoute><LoanRequests /></ProtectedRoute>} />
           <Route path="/app/insurance" element={<ProtectedRoute><Insurance /></ProtectedRoute>} />
           <Route path="/app/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
+          <Route path="/app/org-chart" element={<ProtectedRoute><OrgChart /></ProtectedRoute>} />
+          <Route path="/app/branches" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Branches /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 16 — Org Chart templates (reporting/functional/location/project + invalid 400), Employees PATCH (cycle/self-management protection, whitelist, denormalize), Projects CRUD, Branches PUT/DELETE (HQ singleton, in_use guard), Employees list filters (branch/dept/type/q). 17/17 backend pytests pass. Frontend smoke on /app/org-chart (4 template buttons render, all 4 switch without errors, 42 org nodes, edit dialog opens), /app/employees, /app/branches (state dropdown, country, pincode, HQ checkbox, save all visible). No critical bugs.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration16_orgchart.py",
+    "/app/test_reports/pytest/iteration_16.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "org_routes.chart() — for project template, members are added to roots without a children:[] reset; reused emp_to_card cards may already be referenced in other groups (e.g. same employee in 2 projects). Mutating .children on shared dict references can corrupt later groups. Recommend deep-copying card() per group or constructing fresh cards inside the project loop.",
+    "org_routes.update_branch — when is_head_office=true and the branch_id itself doesn't exist in this company, the unset of other branches still runs first; minor — but should re-order: validate branch existence before clearing other HQs (atomicity).",
+    "Branches.jsx — the new-branch flow does POST then re-GETs the full list to find the just-created branch by name+country_id match (line 57). Race-prone; backend POST should accept and persist state_code/pincode/phone/is_head_office in one shot, or POST should return the doc so client can use returned id directly (it actually does return doc — code should just use response data rather than re-querying).",
+    "employees_routes.patch_employee — cycle check walks up via manager_id chain but does NOT cap iteration count (depends on `seen`). With corrupted data (manager_id pointing to deleted employee) the loop exits when find_one returns None, OK. But missing project_ids type validation — passing project_ids: 'foo' (string) would break MongoDB array semantics. Add isinstance check.",
+    "OrgChart.jsx flattenTree — collapsed state ignores depth-based parent collapse (comment notes 'rely on user toggling each level'). Functional but UX gap — collapsing a parent leaves descendants visible. Consider tracking subtree visibility via collapsed-set instead of per-node.",
+    "Branches.jsx — country select only shown on create; editing cannot move a branch to a different country. Acceptable but document the limitation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration16_orgchart.py"
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "100% (org-chart 4 templates + edit dialog, employees, branches admin all rendered without runtime errors)" },
+  "test_credentials": "HR: hr@acme.io / Hr@12345 (worked)",
+  "seed_data_creation": "Side effects on ACME demo data: (1) branches[0] (Bengaluru HQ) was updated with state_code=IN-MH, state_name=Maharashtra, pincode=400001, phone=+91-9999999999, is_head_office=true (it was already HQ so flag unchanged). (2) employees[0].job_title set to 'TEST_iter16_title'. (3) employees[0].department_id/branch_id/department_name/branch_name updated to depts[0]/branches[0]. Main agent should reseed if needed for clean demo state. No TEST_ prefixed projects remain (created+deleted in single test run).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration16_orgchart.py covers: 4 chart templates + invalid (400), patch cycle/self/whitelist/denormalize, projects CRUD soft-delete, branch HQ singleton + delete guard, employees filter q/branch_id/department_id/employee_type. All passing on real ACME seed. Drag-drop UI not exercised per spec — the underlying PATCH /employees{id} {manager_id} is fully tested instead. ACME demo seed branch[0] now has state_code=IN-MH; if next test asserts 'Bengaluru HQ has no state_code' it will fail. No backend errors in supervisor logs.",
+  "rca of the issue": "N/A — all tests pass."
+}

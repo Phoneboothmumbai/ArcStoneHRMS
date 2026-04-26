@@ -41,8 +41,10 @@ export const MODULES = [
     items: [
       { to: "/app/hr",            label: "Overview",      icon: HouseLine },
       { to: "/app/hr-alerts",     label: "HR Alerts",     icon: Bell, roles: ROLE_HR },
-      { to: "/app/employees",     label: "Employees",     icon: UsersThree },
-      { to: "/app/org-tree",      label: "Organization",  icon: TreeStructure },
+      { to: "/app/employees",     label: "Directory",     icon: UsersThree },
+      { to: "/app/org-chart",     label: "Org Chart",     icon: TreeStructure },
+      { to: "/app/org-tree",      label: "Hierarchy map", icon: Stack },
+      { to: "/app/branches",      label: "Locations",     icon: Buildings, roles: ROLE_HR },
       { to: "/app/onboarding",    label: "Onboarding",    icon: UserCirclePlus,  entitlement: "onboarding" },
       { to: "/app/offboarding",   label: "Offboarding",   icon: UserCircleMinus, entitlement: "onboarding" },
       { to: "/app/approvals",     label: "Approvals",     icon: ShieldCheck },

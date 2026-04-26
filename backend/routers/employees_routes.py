@@ -111,3 +111,53 @@ async def get_employee(emp_id: str, user=Depends(get_current_user)):
     if user["role"] != "super_admin" and user.get("company_id") != emp["company_id"]:
         raise HTTPException(403, "Forbidden")
     return emp
+
+
+@router.patch("/{emp_id}")
+async def patch_employee(emp_id: str, body: dict,
+                         user=Depends(require_roles("super_admin", "company_admin",
+                                                    "country_head", "region_head", "branch_manager"))):
+    """HR / manager-side profile patch — change manager, department, branch, project tags, etc.
+
+    Used by the org chart drag-drop editor.
+    """
+    db = get_db()
+    cid = user.get("company_id")
+    emp = await db.employees.find_one({"id": emp_id, "company_id": cid}, {"_id": 0})
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    allowed = {"manager_id", "department_id", "branch_id", "job_title", "employee_type",
+               "date_of_birth", "phone", "project_ids", "department_name", "branch_name"}
+    patch = {k: v for k, v in body.items() if k in allowed}
+    if not patch:
+        raise HTTPException(400, "Nothing to update")
+
+    # Prevent cycles when reassigning manager
+    if "manager_id" in patch and patch["manager_id"]:
+        if patch["manager_id"] == emp_id:
+            raise HTTPException(400, "Employee cannot be their own manager")
+        # Walk up: ensure new manager isn't a descendant of emp_id
+        cur = patch["manager_id"]
+        seen = set()
+        while cur and cur not in seen:
+            seen.add(cur)
+            up = await db.employees.find_one({"id": cur}, {"_id": 0, "manager_id": 1})
+            if not up:
+                break
+            if up.get("manager_id") == emp_id:
+                raise HTTPException(400, "Cannot create a reporting cycle (target reports under this employee)")
+            cur = up.get("manager_id")
+
+    # Denormalize names for the org chart cards
+    if "department_id" in patch and patch["department_id"]:
+        d = await db.departments.find_one({"id": patch["department_id"], "company_id": cid}, {"_id": 0})
+        if d:
+            patch["department_name"] = d["name"]
+    if "branch_id" in patch and patch["branch_id"]:
+        b = await db.branches.find_one({"id": patch["branch_id"], "company_id": cid}, {"_id": 0})
+        if b:
+            patch["branch_name"] = b["name"]
+
+    patch["updated_at"] = now_iso()
+    await db.employees.update_one({"id": emp_id}, {"$set": patch})
+    return await db.employees.find_one({"id": emp_id}, {"_id": 0})

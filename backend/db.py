@@ -141,6 +141,9 @@ async def ensure_indexes() -> None:
     await db.lwf_rules.create_index([("company_id", 1), ("state_code", 1)], unique=True)
     # Compliance bulletins
     await db.compliance_bulletins.create_index([("company_id", 1), ("is_published", 1)])
+    # Org chart projects
+    await db.projects.create_index([("company_id", 1), ("is_active", 1)])
+    await db.employees.create_index("manager_id")
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:
