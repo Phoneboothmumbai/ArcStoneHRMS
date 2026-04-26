@@ -309,7 +309,7 @@ function MobileAppSection() {
                 <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><AndroidLogo size={22} weight="fill"/></div>
                 <div>
                   <h3 className="font-display font-bold text-lg">Android</h3>
-                  <p className="text-xs text-zinc-500">{meta?.android?.min_android || "Android 8.0+"}{apkAvailable && meta?.android?.apk_size_mb ? ` · ${meta.android.apk_size_mb} MB APK` : " · Install as web app"}</p>
+                  <p className="text-xs text-zinc-500">{meta?.android?.min_android || "Android 8.0+"}{apkAvailable ? (meta?.android?.apk_size_mb ? ` · ${meta.android.apk_size_mb} MB APK` : " · Native APK") : " · Install as web app"}</p>
                 </div>
               </div>
 
@@ -322,7 +322,7 @@ function MobileAppSection() {
 
               {apkAvailable ? (
                 <a href={apkUrl} className="block" data-testid="mobile-android-download">
-                  <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold rounded-lg gap-2"><DownloadSimple size={16} weight="bold"/>Download APK</Button>
+                  <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold rounded-lg gap-2"><DownloadSimple size={16} weight="bold"/>Install Arcstone app</Button>
                 </a>
               ) : (
                 <Button onClick={triggerInstall} disabled={installed}
@@ -337,7 +337,7 @@ function MobileAppSection() {
                   <Button variant="outline" className="w-full bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 rounded-lg gap-2"><ArrowUpRight size={14}/>Get on Play Store</Button>
                 </a>
               ) : (
-                <div className="mt-2 text-[11px] text-zinc-500 text-center">Native APK + Play Store listing — coming Q3</div>
+                <div className="mt-2 text-[11px] text-zinc-500 text-center">{apkAvailable ? "Signed native APK · Play Store listing coming soon" : "Native APK + Play Store listing — coming Q3"}</div>
               )}
 
               <details className="mt-5 text-xs text-zinc-400" data-testid="mobile-android-instructions">
