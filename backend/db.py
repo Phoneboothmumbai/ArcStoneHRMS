@@ -144,6 +144,13 @@ async def ensure_indexes() -> None:
     # Org chart projects
     await db.projects.create_index([("company_id", 1), ("is_active", 1)])
     await db.employees.create_index("manager_id")
+    # Mobile companion
+    await db.attendance.create_index([("company_id", 1), ("employee_id", 1), ("on_date", 1)])
+    await db.location_pings.create_index([("company_id", 1), ("employee_id", 1), ("on_date", 1)])
+    await db.location_pings.create_index([("attendance_id", 1)])
+    await db.push_tokens.create_index([("user_id", 1), ("device_id", 1)], unique=True)
+    await db.attendance_selfies.create_index([("employee_id", 1), ("on_date", 1)])
+    await db.field_visits.create_index([("company_id", 1), ("employee_id", 1)])
 
 
 async def _upsert_user(email: str, password: str, name: str, role: str, company_id=None, reseller_id=None, employee_id=None) -> dict:

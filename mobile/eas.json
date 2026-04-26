@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "withoutCredentials": false,
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "channel": "preview",
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "channel": "production",
+      "autoIncrement": true
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal"
+      },
+      "ios": {
+        "appleId": "YOUR-APPLE-ID@example.com",
+        "ascAppId": "YOUR-APP-STORE-CONNECT-APP-ID",
+        "appleTeamId": "YOUR-APPLE-TEAM-ID"
+      }
+    }
+  }
+}

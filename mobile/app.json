@@ -2,10 +2,11 @@
   "expo": {
     "name": "Arcstone HRMS",
     "slug": "arcstone-hrms",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "scheme": "arcstone",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -15,10 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "io.arcstone.hrms",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Arcstone uses your location to verify you're at an authorized work site when you check in.",
+        "NSLocationWhenInUseUsageDescription": "Arcstone uses your location to verify you are at an authorized work site when you check in.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Arcstone tracks your work location between check-in and check-out for attendance compliance. Tracking stops automatically when you check out.",
+        "NSLocationAlwaysUsageDescription": "Arcstone tracks your work location between check-in and check-out for attendance compliance.",
         "NSCameraUsageDescription": "Arcstone needs camera access to take your check-in selfie.",
-        "NSFaceIDUsageDescription": "Arcstone uses Face ID for quick and secure sign-in."
+        "NSFaceIDUsageDescription": "Arcstone uses Face ID for quick and secure sign-in.",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
     "android": {
@@ -27,23 +32,51 @@
         "backgroundColor": "#09090b"
       },
       "package": "io.arcstone.hrms",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
         "CAMERA",
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "VIBRATE"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "https://people-partner-cloud.preview.emergentagent.com"
+      "apiBaseUrl": "https://people-partner-cloud.preview.emergentagent.com",
+      "eas": {
+        "projectId": "REPLACE-WITH-YOUR-EAS-PROJECT-ID"
+      }
     },
     "plugins": [
-      "expo-notifications",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Arcstone tracks your work location only between check-in and check-out for attendance compliance.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Arcstone needs camera access to take your check-in selfie."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#10b981"
+        }
+      ],
       "expo-local-authentication"
     ]
   }
