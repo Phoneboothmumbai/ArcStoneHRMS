@@ -14,6 +14,21 @@ import {
   MODULES, ROLE_WORKSPACES, isRoleEligible, isEntitled, filterItems, moduleFromPath,
 } from "../lib/moduleRegistry";
 
+// When loaded inside the native mobile app's WebView we strip the chrome
+// (sidebar, header, hamburger) and just render the page content. The mobile
+// shell already provides navigation/back-button/title.
+export const isEmbeddedMobile = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("embed") === "mobile") {
+      sessionStorage.setItem("embed_mobile", "1");
+      return true;
+    }
+    return sessionStorage.getItem("embed_mobile") === "1";
+  } catch { return false; }
+};
+
 export default function AppShell({ children, title }) {
   const { user, logout } = useAuth();
   const { active: activeModules } = useModules();
@@ -31,6 +46,15 @@ export default function AppShell({ children, title }) {
   }, [drawerOpen]);
 
   if (!user) return null;
+
+  // When embedded inside the native mobile WebView, render content-only.
+  if (isEmbeddedMobile()) {
+    return (
+      <div className="min-h-screen bg-zinc-100" data-testid="app-shell-embed">
+        <div className="p-3 sm:p-5">{children}</div>
+      </div>
+    );
+  }
 
   const HR_ROLES = ["company_admin", "country_head", "region_head"];
   const isHr = HR_ROLES.includes(user.role);

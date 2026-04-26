@@ -13,6 +13,15 @@
 
 ## What's been implemented
 
+### Apr 26, 2026 (Evening) — Mobile feature parity + OTA pipeline 📱
+- **APK v1.0.1**: https://expo.dev/artifacts/eas/mHYjVg76XK7jX63VR8rtG2.apk (build `a7d2fae1-ed8b-4e87-8e7d-2807cad13c15`, 70.7 MB).
+- **Full employee parity**: Home / Attendance / Leave / Inbox / More — covers Payslips, Expenses (with native receipt camera), Policies, Goals, Reviews, Helpdesk, POSH, Loans, Insurance, Product/Service requests, My Submissions, Knowledge Base, Notifications, Profile.
+- **Hybrid architecture**: native-first for daily-driver screens (Attendance, Leave, Payslips, Expenses, Inbox, Profile), reusable `<WebViewScreen>` for less-frequented screens — WebView injects JWT and hits the live web app with `?embed=mobile` so the chrome is hidden and only content renders.
+- **`expo-updates` wired**: `runtimeVersion: appVersion`, channel `preview` ↔ branch `preview` linked. Push JS-only changes to all installed devices in seconds via `cd /app/mobile && EXPO_TOKEN=... eas update --branch preview --message "..."`. No reinstall needed.
+- Web `AppShell.jsx` now respects `?embed=mobile` (renders content-only when inside the mobile WebView).
+
+
+
 ### Apr 26, 2026 (Late PM) — Native Android APK live 📱
 - **APK ready for download/sideload**: https://expo.dev/artifacts/eas/agpTzX2bsvC8m2LgvN4AmG.apk (signed, internal-distribution build, ~50 MB).
 - EAS project: `@phonebooth/arcstone-hrms` (id `5a04fa8a-bd56-43ee-89c1-bd1c08a87fcd`); keystore stored on Expo cloud and reusable for all future builds.

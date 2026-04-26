@@ -1,3 +1,37 @@
+### Feb 26, 2026 (Late PM) — Mobile feature parity + OTA pipeline 📱✨
+**Mobile app now mirrors the entire employee web experience.** APK v1.0.1 (versionCode 2) shipped. From here, every web change reaches phones in seconds via `eas update --branch preview` — no APK rebuild, no reinstall.
+
+**New native screens** (`/app/mobile/src/screens/`):
+- **`HomeScreen`** rebuilt — quick-action grid (Check in / Apply leave / Payslips / Expenses / Policies / Helpdesk), live stat cards, manager approvals callout, inbox preview row.
+- **`PayslipsScreen`** — fetches `/api/payslips` (employee-filtered server-side), per-row PDF download via `expo-print` + `expo-sharing` + `expo-file-system`, native period/net-pay/LOP rendering. Disabled state for unpublished slips.
+- **`ExpensesScreen`** — full claim list with status pills, status-tinted colors. Floating "+ New" pill button opens a sheet modal with: title, purpose, horizontal category picker, amount (decimal pad), date, description, and **native receipt picker** (camera or gallery, base64-uploaded, ≤2 MB enforced). Submits to `/api/expenses` and auto-fires `/expenses/{id}/submit`.
+- **`NotificationsScreen`** — `/api/notifications` list, unread tinting, mark-one-read on tap, "Mark all read" header CTA.
+- **`MoreScreen`** — sectioned hub (Money / Performance / Workplace / Account) listing all 11+ secondary features. Auto-dims modules the company hasn't entitled (queries `/api/modules/mine`). Sign-out lives here with confirmation dialog.
+- **`WebViewScreen`** — single reusable component for content-heavy screens. Pre-injects JWT into `localStorage` via `injectedJavaScriptBeforeContentLoaded`, appends `?embed=mobile` to every URL, hardware back-button drives WebView history, pull-to-retry on network errors.
+
+**WebView-backed screens (use existing web pages)**: Policies, My Goals, My Reviews, Helpdesk, PoSH, Product Requests, My Submissions, Loans, Insurance, Knowledge Base — all surfaced from `MoreScreen` and the Home quick-actions.
+
+**Web ↔ Mobile bridge** (`/app/frontend/src/components/AppShell.jsx`):
+- New `isEmbeddedMobile()` helper. When `?embed=mobile` is in the URL or `embed_mobile=1` in sessionStorage, AppShell renders content-only — strips sidebar, top header, hamburger, module switcher. The native shell already provides nav/title/back-button.
+
+**Navigation rebuilt** (`AppNavigator.js`):
+- 5 bottom tabs: Home / Attendance / Leave / **Inbox** / **More** (badge-aware, polled every 60 s)
+- Inbox = unified Notifications + Approvals (managers see both, switched via top tabs)
+- Stack screens for Profile, Payslips, Expenses, WebView (push-style nav)
+
+**OTA Updates** (`expo-updates`):
+- `runtimeVersion: { policy: "appVersion" }` + `updates.url` configured in `app.json`.
+- `App.js` calls `Updates.checkForUpdateAsync()` on launch and on every foreground (`AppState` listener) — fetches new JS bundle silently, applies on next cold start.
+- EAS project channel `preview` ↔ branch `preview` are auto-created and bound.
+- **To push a JS-only change**: `cd /app/mobile && EXPO_TOKEN=... eas update --branch preview --message "..."`. Reaches every installed device on next launch (~3 s).
+
+**APK build #2 (v1.0.1)**:
+- ID `a7d2fae1-ed8b-4e87-8e7d-2807cad13c15` (preview, Android, internal, SDK 51, versionCode 2)
+- Download URL: `https://expo.dev/artifacts/eas/mHYjVg76XK7jX63VR8rtG2.apk` (70.7 MB)
+- `MOBILE_APK_REMOTE_URL` and `MOBILE_APP_VERSION` updated in `/app/backend/.env` — landing-page QR + button now redirect here.
+- Reuses the same auto-generated keystore as v1 → users can update by reinstalling without losing data signature.
+
+
 ### Feb 26, 2026 — Native Android APK shipped 📱✅
 **The mobile app is real.** First production-grade APK successfully built via Expo EAS cloud.
 

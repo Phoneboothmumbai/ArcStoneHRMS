@@ -2,7 +2,9 @@ import { registerRootComponent } from "expo";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import React, { useEffect } from "react";
+import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
+import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // IMPORTANT: import the background task module at top-level so TaskManager
@@ -40,11 +42,30 @@ async function registerForPush() {
   } catch {}
 }
 
+// Check for OTA updates and apply them silently. Runs on launch and again
+// each time the app returns from background — so any web-side feature push
+// reaches the device within seconds of the next foreground.
+async function checkForUpdates() {
+  try {
+    if (!Updates.isEnabled || __DEV__) return;
+    const result = await Updates.checkForUpdateAsync();
+    if (result?.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      // Apply silently on next cold start to avoid jarring the user mid-task.
+      // (Uncomment the next line to apply immediately.)
+      // await Updates.reloadAsync();
+    }
+  } catch {}
+}
+
 function App() {
   useEffect(() => {
-    // Register for push after a short delay so AuthContext hydrates first
     const t = setTimeout(registerForPush, 2500);
-    return () => clearTimeout(t);
+    checkForUpdates();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") checkForUpdates();
+    });
+    return () => { clearTimeout(t); sub.remove(); };
   }, []);
   return (
     <SafeAreaProvider>
