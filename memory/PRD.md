@@ -13,7 +13,32 @@
 
 ## What's been implemented
 
-### Apr 26, 2026 — HR Lifecycle, Self-Service, State Statutory & Compliance 🌟
+### Apr 26, 2026 (PM) — Group D: Org Chart, Directory & Multi-Location 🌳
+**17/17 backend + frontend tests pass · production-deployed.**
+
+**Backend** (`/api/org/*`, `/api/employees/{id}` PATCH):
+- **Visual org chart endpoint** — `GET /api/org/chart?template=...` with **4 templates**:
+  - `reporting`: manager_id-based hierarchy, returns `roots[]` with recursive `children[]`.
+  - `functional`: groups employees by department, each with its own reporting subtree.
+  - `location`: groups by branch — surfaces `is_head_office` + `state_code` for the LWF/PT context.
+  - `project`: groups by project membership; project lead becomes the visual root.
+- **Drag-drop manager reassignment** — `PATCH /api/employees/{id}` accepts manager_id / department_id / branch_id / project_ids. **Cycle-protected** (rejects self-management AND prevents creating reporting cycles by walking up the new manager's ancestry).
+- **Projects CRUD** (`/api/org/projects`) — name/code/lead/members/status; gates the project chart view.
+- **Branch CRUD enhanced** — `PUT /api/org/branches/{id}` supports `state_code`, `state_name`, `pincode`, `phone`, `is_head_office` (HQ singleton — setting one clears all others). `DELETE` blocked when employees still assigned.
+
+**Frontend** (3 new/upgraded pages):
+- **`/app/org-chart`** — `OrgChart.jsx`: 4 template tiles (Reporting / Functional / Location / Project), live search with ancestor+descendant highlighting, expandable employee cards with avatar / type / code badges, drag-and-drop tree reassignment (HR only), inline edit dialog for changing manager / dept / branch / project tags, employee profile preview.
+- **`/app/employees`** (Directory) — full search, department + branch + type filters, table↔card view toggle, manager column, color-rotating avatars, rich cards with email/phone/dept/branch.
+- **`/app/branches`** (Locations) — card grid of office locations with HQ badge, state code, pincode, phone; add/edit dialog with full Indian-states dropdown driving LWF mapping.
+- Sidebar reorganised: Directory · Org Chart · Hierarchy map · Locations all under People.
+
+**Performance/code quality**:
+- `OrgChart.jsx` uses an iterative `flattenTree()` instead of recursive component to bypass a babel-traverse infinite-loop bug; preserves visual hierarchy via `marginLeft: depth * 24px`.
+- New indexes: `employees(manager_id)`, `projects(company_id, is_active)`.
+
+**Tests** — `/app/test_reports/iteration_16.json` — **17/17 green**: cycle protection (self-loop + descendant-loop), whitelist on PATCH, HQ singleton, in_use branch delete guard, all 4 chart templates (+invalid → 400), Project CRUD, employee list filters.
+
+### Apr 26, 2026 (AM) — HR Lifecycle, Self-Service, State Statutory & Compliance 🌟
 **Big Phase A+B+C ship — 4 new modules, 17/17 backend tests + frontend smokes pass. Production-deployed to Hetzner.**
 
 **Backend** (`/api/lifecycle/*`, `/api/loan-requests`, `/api/insurance/*`, `/api/lwf-rules`, `/api/compliance-bulletins`, `/api/expenses/.../voucher-pdf`):
