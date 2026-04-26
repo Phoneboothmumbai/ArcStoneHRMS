@@ -221,6 +221,31 @@ async def compute_run(rid: str, user=Depends(require_roles(*ADMIN))):
                         ))
                         employer += lwf_er
 
+        # Active loan EMI deductions — pull pending instalments for this period
+        # from `employee_loans.schedule[]`. Each instalment has a {month: 'YYYY-MM',
+        # amount, status}. We deduct any 'pending' instalment whose month matches
+        # the run's period_month, then mark it 'paid' on the loan doc once the
+        # run is finalised (see finalise endpoint).
+        loans = await db.employee_loans.find(
+            {"company_id": cid, "employee_id": s["employee_id"], "status": {"$ne": "closed"}}, {"_id": 0}
+        ).to_list(50)
+        for ln_doc in loans:
+            for inst in (ln_doc.get("schedule") or []):
+                if inst.get("month") != run["period_month"]:
+                    continue
+                if inst.get("status") == "paid":
+                    continue
+                amt = round(float(inst.get("amount", 0)), 2)
+                if amt <= 0:
+                    continue
+                lines.append(PayslipLine(
+                    component_code=f"LOAN_{ln_doc.get('loan_type','LOAN').upper()[:6]}",
+                    component_name=f"Loan EMI ({ln_doc.get('loan_type','loan')})",
+                    kind="deduction", amount=amt,
+                ))
+                total_ded += amt
+
+
         payslip = Payslip(
             company_id=cid, run_id=rid, period_month=run["period_month"],
             employee_id=s["employee_id"], employee_name=s["employee_name"], employee_code=s["employee_code"],
@@ -270,6 +295,32 @@ async def finalise_run(rid: str, user=Depends(require_roles(*ADMIN))):
                   "finalised_by": user["id"], "updated_at": now_iso()}},
     )
     await db.payslips.update_many({"run_id": rid}, {"$set": {"status": "finalised"}})
+
+    # Mark this period's loan instalments as paid + reduce outstanding.
+    period = run["period_month"]
+    cid = user.get("company_id")
+    loans = await db.employee_loans.find(
+        {"company_id": cid, "schedule.month": period, "status": {"$ne": "closed"}}, {"_id": 0}
+    ).to_list(2000)
+    for ln_doc in loans:
+        new_schedule = []
+        deducted = 0.0
+        for inst in ln_doc.get("schedule") or []:
+            if inst.get("month") == period and inst.get("status") != "paid":
+                new_schedule.append({**inst, "status": "paid", "paid_in_run": rid})
+                deducted += float(inst.get("amount", 0) or 0)
+            else:
+                new_schedule.append(inst)
+        new_outstanding = max(0.0, float(ln_doc.get("outstanding", 0) or 0) - deducted)
+        new_status = "closed" if new_outstanding <= 0.5 else ln_doc.get("status", "active")
+        await db.employee_loans.update_one(
+            {"id": ln_doc["id"]},
+            {"$set": {
+                "schedule": new_schedule, "outstanding": round(new_outstanding, 2),
+                "status": new_status, "updated_at": now_iso(),
+            }},
+        )
+
     return await db.payroll_runs.find_one({"id": rid}, {"_id": 0})
 
 

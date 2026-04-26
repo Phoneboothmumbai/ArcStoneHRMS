@@ -1,3 +1,37 @@
+### Feb 26, 2026 (Late evening) — SpineHR Sprint 1: Loan EMI + Resource Booking + Visitor Mgmt + Leave Planner 🚀
+
+**Loan EMI auto-deduction in payroll** (`/app/backend/routers/payroll_run_routes.py`):
+- During `compute_run`, fetches all active `employee_loans` for each employee and pulls any `schedule[]` instalment matching the run's `period_month`. Adds it as a `LOAN_*` deduction line on the payslip.
+- During `finalise_run`, marks those instalments as `paid` and reduces the loan's `outstanding`. Auto-closes the loan when outstanding reaches 0.
+- No new schema — reuses the existing schedule rows from `fnf_routes._build_schedule()`.
+
+**Resource Booking module** (new): `routers/resource_booking_routes.py` (~190 LoC) + `pages/ResourceBooking.jsx` (~280 LoC).
+- `GET/POST/PATCH/DELETE /api/resources` — meeting rooms, vehicles, equipment, hot desks. HR-admin owns CRUD.
+- `GET/POST/DELETE /api/resource-bookings` — anyone in the company can book. Overlap detection at insert time (returns `409` with the conflicting time range).
+- Frontend: card grid of resources with type-specific icons, "Next bookings" preview per resource, two modals (Add resource / New booking), upcoming-bookings list with cancel-by-creator-or-admin.
+- Verified via curl: created Conference Room A, booked it 10:00-11:00, second overlapping booking returned `HTTP 409`.
+
+**Visitor Management module** (new): `routers/visitors_routes.py` (~150 LoC) + `pages/VisitorManagement.jsx` (~250 LoC).
+- `POST /api/visitors` — front-desk check-in with name, company, phone, host (type-ahead employee search), purpose, ID-proof type + last-4 digits, badge #, optional photo (base64, ≤500 KB).
+- Auto-fires an in-app notification to the host employee on check-in.
+- `POST /api/visitors/{vid}/checkout` — sign out with optional notes.
+- `GET /api/visitors/today` — kiosk-friendly feed with `{counts: {checked_in, checked_out, total}, rows: [...]}`.
+- Frontend: 3 stat tiles (on-premises now / signed out / total today), auto-refresh every 30 s, badge for checked_in vs checked_out, clean check-in modal with phone-camera capture.
+
+**Visual Leave Planner** (new): `pages/LeavePlanner.jsx` (~110 LoC). Reads existing `/api/leave/team-calendar` API (no backend changes). Renders a month-grid where each row is an employee and each cell is a day — coloured by leave type, shaded amber for pending. Sticky employee-name column, prev/next/today nav, weekend tinting, hover for full leave details.
+
+**Routes & sidebar wiring**:
+- `App.js` → 3 new routes: `/app/leave-planner`, `/app/resource-booking`, `/app/visitors`.
+- `lib/moduleRegistry.js` → "Team leave planner" added under Time & Leave; new **Workplace** module group with Resource Booking + Visitor Management.
+
+**Production deploy** (Hetzner `138.199.146.191`):
+- 4 backend files rsync'd to `/opt/arcstone/backend/`.
+- 5 frontend files rsync'd to `/opt/arcstone/frontend/src/`.
+- `yarn build` + `supervisorctl restart arcstone-backend`. Verified `/api/resources` returns 200.
+
+**SpineHR feature progress**: 4 / 8 quick-win features delivered (Loan EMI, Visual Leave Planner, Resource Booking, Visitor Management). Still pending: Document versioning + expiry alerts · Exit interview UI · Parallel approvals · Backdated/arrears payroll.
+
+
 ### Feb 26, 2026 (Late evening) — Company logo upload + branded PDFs 🎨
 **Every company can now upload a logo in settings, and it auto-prints on every generated PDF.**
 

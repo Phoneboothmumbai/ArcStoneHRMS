@@ -195,6 +195,13 @@ app.include_router(compliance_bulletin_router)
 app.include_router(public_router)
 app.include_router(mobile_router)
 
+# SpineHR-aligned modules
+from routers.resource_booking_routes import resources_router, bookings_router as resource_bookings_router
+from routers.visitors_routes import router as visitors_router
+app.include_router(resources_router)
+app.include_router(resource_bookings_router)
+app.include_router(visitors_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

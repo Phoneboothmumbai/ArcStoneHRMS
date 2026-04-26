@@ -66,6 +66,7 @@ export const MODULES = [
       { to: "/app/leave",             label: "My Leave",       icon: CalendarCheck },
       { to: "/app/attendance-admin",  label: "Attendance Admin", icon: ClockClockwise, roles: ROLE_HR },
       { to: "/app/leave-admin",       label: "Leave Admin",      icon: CalendarCheck,   roles: ROLE_HR },
+      { to: "/app/leave-planner",     label: "Team leave planner", icon: CalendarCheck, roles: ROLE_MANAGER },
     ],
   },
   // ────────────────── Paid modules ──────────────────
@@ -111,6 +112,20 @@ export const MODULES = [
     description: "Laptops, phones, access cards. Depreciation & assignment.",
     items: [
       { to: "/app/assets", label: "Asset Register", icon: Laptop },
+    ],
+  },
+  {
+    id: "workplace",
+    label: "Workplace",
+    icon: Buildings,
+    color: "bg-cyan-100 text-cyan-700",
+    landing: "/app/resource-booking",
+    roles: ROLE_ANY,
+    entitlement: null,
+    description: "Resource booking, visitor management — front-desk operations.",
+    items: [
+      { to: "/app/resource-booking", label: "Resource booking", icon: Calendar },
+      { to: "/app/visitors",         label: "Visitor management", icon: UserCirclePlus, roles: ROLE_HR },
     ],
   },
   {
