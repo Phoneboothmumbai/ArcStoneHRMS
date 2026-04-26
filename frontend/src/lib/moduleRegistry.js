@@ -49,6 +49,7 @@ export const MODULES = [
       { to: "/app/offboarding",   label: "Offboarding",   icon: UserCircleMinus, entitlement: "onboarding" },
       { to: "/app/approvals",     label: "Approvals",     icon: ShieldCheck },
       { to: "/app/workflows",     label: "Workflows",     icon: FlowArrow },
+      { to: "/app/company-settings", label: "Company settings", icon: Gear, roles: ROLE_HR },
     ],
   },
   {

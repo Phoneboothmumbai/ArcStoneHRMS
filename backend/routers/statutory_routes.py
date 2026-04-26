@@ -370,9 +370,11 @@ async def form16_pdf(cid: str, emp_id: str, financial_year: str = Query(...),
     db = get_db()
     data = await _compute_form16(db, cid, emp_id, financial_year)
     company = await db.companies.find_one({"id": cid}, {"_id": 0, "name": 1, "legal_name": 1}) or {}
+    settings = await db.company_settings.find_one({"company_id": cid}, {"_id": 0}) or {}
     pdf = render_form16_pdf(
         data, company_name=company.get("name", "Company"),
-        legal_entity=company.get("legal_name") or company.get("name"),
+        legal_entity=settings.get("legal_entity_name") or company.get("legal_name") or company.get("name"),
+        logo_base64=settings.get("logo_base64"),
     )
     fname = f"Form16_{(data.get('employee_name') or emp_id).replace(' ', '_')}_{financial_year}.pdf"
     return Response(

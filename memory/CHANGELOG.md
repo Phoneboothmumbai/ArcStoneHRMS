@@ -1,3 +1,46 @@
+### Feb 26, 2026 (Late evening) — Company logo upload + branded PDFs 🎨
+**Every company can now upload a logo in settings, and it auto-prints on every generated PDF.**
+
+**Backend** (`/app/backend/`):
+- `models_policy.py` → added `logo_mime_type` field to `CompanySettings` and `CompanySettingsUpdate`.
+- `routers/policy_routes.py` → PATCH `/company-settings` now strips data-URI prefix, persists clean base64 + mime, enforces ~500 KB cap, surfaces `logo_mime_type` to employee minimal view.
+- `pdf_render.py` → new `_logo_flowable()` (decodes base64 → ReportLab `Image`, fits to bbox, caches per session) and `_branded_header()` (two-column layout with title+subtitle on left, logo on right). Falls back gracefully (no logo → unchanged).
+- All 6 PDF renderers extended with `logo_base64` parameter and use `_branded_header()`:
+  - `render_payslip_pdf`
+  - `render_letter_pdf`
+  - `render_form16_pdf`
+  - `render_expense_voucher_pdf`
+  - `render_orgchart_pdf`
+  - `render_directory_pdf`
+- 6 PDF endpoints updated to fetch `company_settings` and pass `logo_base64`:
+  - `payroll_run_routes.py` (`/payslips/{id}/pdf`)
+  - `letters_routes.py` (`/letters/{id}/pdf` + `/letters/bulk-pdf`)
+  - `expenses_routes.py` (`/expenses/{eid}/voucher-pdf`)
+  - `org_routes.py` (`/org/chart-pdf`)
+  - `employees_routes.py` (`/employees/directory-pdf`)
+  - `statutory_routes.py` (`/companies/{cid}/exports/form-16/{emp_id}/pdf`)
+
+**Frontend** (`/app/frontend/`):
+- New page `pages/CompanySettings.jsx` — single-screen settings hub for HR admins. 4 sections:
+  - **Branding**: 120px logo preview tile + Upload/Change/Remove buttons (PNG/JPEG/WebP, ≤ 500 KB), legal entity name (drives PDF heading), registered address.
+  - **Fiscal & payroll cycle**: FY start month, payroll cutoff day, pay day.
+  - **Statutory identifiers**: PAN, TAN, GSTIN, CIN, PF code, ESIC code (auto-uppercase).
+  - **Localization**: currency (3-char), timezone.
+  - Sticky save bar at bottom with dirty-state indicator + Discard button. Toasts for success/error. Auto-fetches on mount.
+- Wired route `/app/company-settings` in `App.js`.
+- Added "Company settings" entry under People module in `lib/moduleRegistry.js` (HR-only via `roles: ROLE_HR`).
+
+**Verification**:
+- Uploaded a 40×40 red PNG via `PATCH /company-settings`. Returned `saved logo bytes: 140`, mime `image/png`.
+- Downloaded a payslip PDF; PDF renders with ✅ logo (top-right), ✅ "Acme Technologies Pvt Ltd" heading, ✅ all payslip content intact (verified via `pdftoppm` → image analysis).
+- Frontend page on preview + prod renders all 4 sections, save bar sticks, logo preview shows the uploaded image / empty-state placeholder correctly.
+
+**Production deploy** (Hetzner `138.199.146.191`):
+- `rsync`'d 9 backend files + 3 frontend files → `/opt/arcstone/{backend,frontend}/`
+- Rebuilt frontend on prod (`yarn build` baked prod backend URL)
+- Restarted `arcstone-backend`. Verified `/api/company-settings` returns the new `logo_mime_type` key, and `/app/company-settings` page renders correctly for `hr@acme.io`.
+
+
 ### Feb 26, 2026 (Late evening) — Production deploy + auto-publish pipeline 🚀
 **Production landing page now serves the latest APK live, and a single command will keep it that way forever.**
 

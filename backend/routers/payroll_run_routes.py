@@ -401,6 +401,7 @@ async def get_payslip_pdf(pid: str, user=Depends(get_current_user)):
     pdf_bytes = render_payslip_pdf(
         slip, run or {}, company_name=company.get("name", "Company"),
         legal_entity=settings.get("legal_entity_name"),
+        logo_base64=settings.get("logo_base64"),
     )
     return Response(
         content=pdf_bytes, media_type="application/pdf",

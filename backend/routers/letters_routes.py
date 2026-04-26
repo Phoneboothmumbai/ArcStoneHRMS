@@ -215,6 +215,7 @@ async def get_letter_pdf(lid: str, user=Depends(get_current_user)):
     pdf_bytes = render_letter_pdf(
         doc, company_name=company.get("name", "Company"),
         legal_entity=settings.get("legal_entity_name"),
+        logo_base64=settings.get("logo_base64"),
     )
     filename = (doc.get("template_name") or "letter").replace(" ", "_") + ".pdf"
     return Response(
@@ -254,6 +255,7 @@ async def bulk_letters_pdf(body: dict, user=Depends(get_current_user)):
             pdf_bytes = render_letter_pdf(
                 doc, company_name=company.get("name", "Company"),
                 legal_entity=settings.get("legal_entity_name"),
+                logo_base64=settings.get("logo_base64"),
             )
             name_bits = [doc.get("template_name") or "letter", doc.get("employee_name") or doc.get("id")]
             fname = "_".join(str(x).replace(" ", "_").replace("/", "-") for x in name_bits) + ".pdf"

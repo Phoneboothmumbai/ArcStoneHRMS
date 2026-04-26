@@ -1,6 +1,7 @@
 """Phase 2B-PDF — payslip + letter PDF generation using reportlab."""
 from __future__ import annotations
 
+import base64
 import io
 from typing import Optional
 
@@ -8,10 +9,71 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib import colors
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as rcanvas
 from reportlab.platypus import (
+    Image as PlatypusImage,
     Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, PageBreak,
 )
+
+
+# Logo cache by base64 hash (avoid re-decoding on every page render)
+_LOGO_CACHE: dict = {}
+
+
+def _logo_flowable(logo_base64: Optional[str], max_w_mm: float = 30, max_h_mm: float = 18):
+    """Return a ReportLab `Image` flowable for the company logo, or None.
+
+    Auto-fits to `max_w_mm` × `max_h_mm` bounding box while preserving aspect ratio.
+    Tolerant: returns None on any decode/IO error so PDFs never fail because of a
+    bad logo.
+    """
+    if not logo_base64:
+        return None
+    cache_key = (id(logo_base64), max_w_mm, max_h_mm) if len(logo_base64) > 1024 else (logo_base64[:128], max_w_mm, max_h_mm)
+    cached = _LOGO_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        # Strip "data:image/png;base64," prefix if present
+        b64 = logo_base64.split(",", 1)[1] if logo_base64.startswith("data:") else logo_base64
+        raw = base64.b64decode(b64)
+        ir = ImageReader(io.BytesIO(raw))
+        iw, ih = ir.getSize()
+        max_w = max_w_mm * mm
+        max_h = max_h_mm * mm
+        scale = min(max_w / iw, max_h / ih, 1.0)
+        img = PlatypusImage(io.BytesIO(raw), width=iw * scale, height=ih * scale)
+        img.hAlign = "RIGHT"
+        _LOGO_CACHE[cache_key] = img
+        return img
+    except Exception:
+        return None
+
+
+def _branded_header(company_title: str, subtitle_paragraphs: list, logo_base64: Optional[str],
+                    title_style, sub_style, max_w_mm: float = 30, max_h_mm: float = 18):
+    """Return a flowable that places logo (right) next to title+subtitle (left).
+
+    Falls back to plain Paragraphs (no table) when no logo is supplied.
+    """
+    title_p = Paragraph(company_title, title_style)
+    subs = [Paragraph(s, sub_style) for s in subtitle_paragraphs if s]
+    left_cell = [title_p] + subs
+    logo = _logo_flowable(logo_base64, max_w_mm=max_w_mm, max_h_mm=max_h_mm)
+    if not logo:
+        return left_cell  # caller will extend(...) into flow
+    # Two-column header with logo on the right
+    table = Table([[left_cell, logo]], colWidths=[None, (max_w_mm + 2) * mm])
+    table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return [table]
 
 
 def _inr(n: float) -> str:
@@ -38,9 +100,12 @@ def render_payslip_pdf(slip: dict, run: dict, company_name: str = "Company", leg
     val_style = ParagraphStyle("val", parent=st["Normal"], fontSize=9, leading=11)
     flow = []
 
-    # Header block
-    flow.append(Paragraph(legal_entity or company_name, h))
-    flow.append(Paragraph(f"Payslip for {run.get('period_label', slip.get('period_month',''))}", sub))
+    # Header block — company title + period + (optional) logo on the right
+    flow.extend(_branded_header(
+        legal_entity or company_name,
+        [f"Payslip for {run.get('period_label', slip.get('period_month',''))}"],
+        logo_base64, title_style=h, sub_style=sub,
+    ))
     flow.append(Spacer(1, 6*mm))
 
     # Employee info grid
@@ -128,7 +193,8 @@ def render_payslip_pdf(slip: dict, run: dict, company_name: str = "Company", leg
 
 
 def render_letter_pdf(letter: dict, company_name: str = "Company",
-                     legal_entity: Optional[str] = None) -> bytes:
+                     legal_entity: Optional[str] = None,
+                     logo_base64: Optional[str] = None) -> bytes:
     """Render a generated letter (markdown body) as a styled PDF."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -142,8 +208,11 @@ def render_letter_pdf(letter: dict, company_name: str = "Company",
     tiny = ParagraphStyle("t", parent=st["Normal"], fontSize=8, leading=10, textColor=colors.HexColor("#888"))
 
     flow = []
-    flow.append(Paragraph(legal_entity or company_name, head))
-    flow.append(Paragraph(letter.get("template_name", ""), tiny))
+    flow.extend(_branded_header(
+        legal_entity or company_name,
+        [letter.get("template_name", "")],
+        logo_base64, title_style=head, sub_style=tiny,
+    ))
     flow.append(Spacer(1, 8*mm))
 
     # Very lightweight markdown-ish: convert lines starting with "#" and "-"; paragraphs separated by blank lines.
@@ -181,7 +250,8 @@ def render_letter_pdf(letter: dict, company_name: str = "Company",
 
 
 
-def render_form16_pdf(data: dict, company_name: str = "Company", legal_entity: Optional[str] = None) -> bytes:
+def render_form16_pdf(data: dict, company_name: str = "Company", legal_entity: Optional[str] = None,
+                      logo_base64: Optional[str] = None) -> bytes:
     """Render a Form 16 (Part B) style TDS certificate summary as PDF.
 
     `data` is the payload produced by `/api/statutory/form16/{employee_id}/{fy}` and contains
@@ -201,9 +271,11 @@ def render_form16_pdf(data: dict, company_name: str = "Company", legal_entity: O
     label = ParagraphStyle("lbl", parent=st["Normal"], fontSize=7.5, leading=10, textColor=colors.HexColor("#888"))
 
     flow = []
-    flow.append(Paragraph(legal_entity or company_name, head))
-    flow.append(Paragraph("FORM 16 — Part B", sub))
-    flow.append(Paragraph(f"Financial year: <b>{data.get('financial_year','')}</b>", body))
+    flow.extend(_branded_header(
+        legal_entity or company_name,
+        ["FORM 16 — Part B", f"Financial year: <b>{data.get('financial_year','')}</b>"],
+        logo_base64, title_style=head, sub_style=sub,
+    ))
     flow.append(Spacer(1, 5*mm))
 
     # Employee block
@@ -323,7 +395,8 @@ def render_form16_pdf(data: dict, company_name: str = "Company", legal_entity: O
     return buf.read()
 
 
-def render_expense_voucher_pdf(claim: dict, company_name: str = "Company", legal_entity: Optional[str] = None) -> bytes:
+def render_expense_voucher_pdf(claim: dict, company_name: str = "Company", legal_entity: Optional[str] = None,
+                               logo_base64: Optional[str] = None) -> bytes:
     """Generate a signed expense voucher PDF for an approved expense claim."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -337,10 +410,13 @@ def render_expense_voucher_pdf(claim: dict, company_name: str = "Company", legal
     body = ParagraphStyle("b", parent=styles["BodyText"], fontSize=9, leading=12)
     tiny = ParagraphStyle("t", parent=styles["BodyText"], fontSize=7.5, textColor=colors.HexColor("#71717a"))
 
-    flow.append(Paragraph(company_name, h1))
+    sub_lines = []
     if legal_entity:
-        flow.append(Paragraph(legal_entity, h2))
-    flow.append(Paragraph("EXPENSE REIMBURSEMENT VOUCHER", h2))
+        sub_lines.append(legal_entity)
+    sub_lines.append("EXPENSE REIMBURSEMENT VOUCHER")
+    flow.extend(_branded_header(
+        company_name, sub_lines, logo_base64, title_style=h1, sub_style=h2,
+    ))
 
     # Employee block
     rows = [
@@ -466,7 +542,8 @@ def _flatten_for_print(roots, depth=0, search_lc=None, out=None):
     return out
 
 
-def render_orgchart_pdf(chart: dict, company_name: str, search: Optional[str] = None) -> bytes:
+def render_orgchart_pdf(chart: dict, company_name: str, search: Optional[str] = None,
+                        logo_base64: Optional[str] = None) -> bytes:
     """Render the visible org-chart tree (any template) to a print-ready PDF."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
@@ -484,12 +561,12 @@ def render_orgchart_pdf(chart: dict, company_name: str, search: Optional[str] = 
     stats = chart.get("stats") or {}
     today = __import__("datetime").datetime.utcnow().strftime("%d %b %Y")
 
-    flow.append(Paragraph(company_name, h1))
     sub = f"Organization Chart · <b>{template.title()}</b> view · {stats.get('employees', 0)} employees"
     if search:
         sub += f" · Filter: <b>{search}</b>"
     sub += f" · {today}"
-    flow.append(Paragraph(sub, h2))
+
+    flow.extend(_branded_header(company_name, [sub], logo_base64, title_style=h1, sub_style=h2))
 
     search_lc = (search or "").lower().strip() or None
 
@@ -543,7 +620,8 @@ def render_orgchart_pdf(chart: dict, company_name: str, search: Optional[str] = 
     return buf.read()
 
 
-def render_directory_pdf(employees: list, company_name: str, filters: dict = None) -> bytes:
+def render_directory_pdf(employees: list, company_name: str, filters: dict = None,
+                         logo_base64: Optional[str] = None) -> bytes:
     """Render employee directory as a print-friendly roster PDF."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
@@ -557,12 +635,16 @@ def render_directory_pdf(employees: list, company_name: str, filters: dict = Non
     tiny = ParagraphStyle("t", parent=styles["BodyText"], fontSize=7, textColor=colors.HexColor("#71717a"))
 
     today = __import__("datetime").datetime.utcnow().strftime("%d %b %Y")
-    flow.append(Paragraph(company_name, h1))
     parts = [f"<b>{len(employees)} employees</b>"]
     for k, v in (filters or {}).items():
         if v: parts.append(f"{k}: {v}")
     parts.append(today)
-    flow.append(Paragraph("Employee Directory · " + " · ".join(parts), h2))
+
+    flow.extend(_branded_header(
+        company_name,
+        ["Employee Directory · " + " · ".join(parts)],
+        logo_base64, title_style=h1, sub_style=h2,
+    ))
 
     head = ["#", "Name", "Code", "Title", "Department", "Branch", "Type", "Email", "Phone", "Status"]
     data = [head]

@@ -67,6 +67,7 @@ class CompanySettings(BaseDoc):
     legal_entity_name: Optional[str] = None
     registered_address: Optional[str] = None
     logo_base64: Optional[str] = None
+    logo_mime_type: Optional[str] = None   # e.g. "image/png", "image/jpeg"
     # Misc
     currency: str = "INR"
     timezone: str = "Asia/Kolkata"
@@ -88,6 +89,7 @@ class CompanySettingsUpdate(BaseModel):
     legal_entity_name: Optional[str] = None
     registered_address: Optional[str] = None
     logo_base64: Optional[str] = None
+    logo_mime_type: Optional[str] = None
     currency: Optional[str] = None
     timezone: Optional[str] = None
     notes: Optional[str] = None

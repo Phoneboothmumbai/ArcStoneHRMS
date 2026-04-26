@@ -171,6 +171,7 @@ async def get_settings(user=Depends(get_current_user)):
             "currency": doc["currency"], "timezone": doc["timezone"],
             "legal_entity_name": doc.get("legal_entity_name"),
             "logo_base64": doc.get("logo_base64"),
+            "logo_mime_type": doc.get("logo_mime_type"),
         }
     return doc
 
@@ -183,6 +184,22 @@ async def update_settings(body: CompanySettingsUpdate, user=Depends(require_role
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if not upd:
         raise HTTPException(400, "No fields to update")
+    # Logo size cap (~500KB raw, ~700KB after base64 overhead). Reject anything bigger.
+    if "logo_base64" in upd and upd["logo_base64"]:
+        raw = upd["logo_base64"]
+        # Strip data URI prefix if present so the field stays a clean base64 string
+        if raw.startswith("data:"):
+            try:
+                head, b64 = raw.split(",", 1)
+                # capture mime if user didn't send it explicitly
+                if "logo_mime_type" not in upd and head.startswith("data:") and ";base64" in head:
+                    upd["logo_mime_type"] = head.split(":", 1)[1].split(";", 1)[0]
+                upd["logo_base64"] = b64
+                raw = b64
+            except Exception:
+                raise HTTPException(400, "Invalid logo data URI")
+        if len(raw) > 700_000:
+            raise HTTPException(400, "Logo must be smaller than ~500 KB. Try a smaller PNG/JPEG.")
     upd["updated_at"] = now_iso()
     await db.company_settings.update_one({"company_id": cid}, {"$set": upd})
     return await db.company_settings.find_one({"company_id": cid}, {"_id": 0})

@@ -149,8 +149,10 @@ async def chart_pdf(
     chart_data = await chart(template=template, user=user)  # reuse the in-process function below
     db = get_db()
     company = await db.companies.find_one({"id": user.get("company_id")}, {"_id": 0}) or {}
+    settings = await db.company_settings.find_one({"company_id": user.get("company_id")}, {"_id": 0}) or {}
     from pdf_render import render_orgchart_pdf
-    pdf = render_orgchart_pdf(chart_data, company.get("name", "Company"), search=search)
+    pdf = render_orgchart_pdf(chart_data, company.get("name", "Company"), search=search,
+                              logo_base64=settings.get("logo_base64"))
     fname = f"orgchart_{template}.pdf"
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f"attachment; filename={fname}"})

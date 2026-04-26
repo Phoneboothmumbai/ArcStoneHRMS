@@ -32,9 +32,11 @@ async def directory_pdf(
         ]
     rows = await db.employees.find(flt, {"_id": 0}).sort("name", 1).to_list(5000)
     company = await db.companies.find_one({"id": cid}, {"_id": 0}) or {}
+    settings = await db.company_settings.find_one({"company_id": cid}, {"_id": 0}) or {}
     from pdf_render import render_directory_pdf
     filters = {"Search": q, "Department": department_id, "Branch": branch_id, "Type": employee_type}
-    pdf = render_directory_pdf(rows, company.get("name", "Company"), filters=filters)
+    pdf = render_directory_pdf(rows, company.get("name", "Company"), filters=filters,
+                               logo_base64=settings.get("logo_base64"))
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=employee_directory.pdf"})
 

@@ -162,9 +162,11 @@ async def voucher_pdf(eid: str, user=Depends(get_current_user)):
     if claim.get("status") not in ("approved", "reimbursed"):
         raise HTTPException(400, "Voucher is generated only after the claim is approved")
     company = await db.companies.find_one({"id": cid}, {"_id": 0}) or {}
+    settings = await db.company_settings.find_one({"company_id": cid}, {"_id": 0}) or {}
     pdf_bytes = render_expense_voucher_pdf(
         claim, company_name=company.get("name", "Company"),
-        legal_entity=company.get("legal_entity_name"),
+        legal_entity=settings.get("legal_entity_name") or company.get("legal_entity_name"),
+        logo_base64=settings.get("logo_base64"),
     )
     fname = f"voucher_{(claim.get('id') or '')[:8]}.pdf"
     return Response(content=pdf_bytes, media_type="application/pdf",
