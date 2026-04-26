@@ -6,7 +6,7 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { MagnifyingGlass, GridFour, ListBullets, EnvelopeSimple, Phone, Buildings, Stack, UserCircle } from "@phosphor-icons/react";
+import { MagnifyingGlass, GridFour, ListBullets, EnvelopeSimple, Phone, Buildings, Stack, UserCircle, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 export default function Employees() {
@@ -84,6 +84,24 @@ export default function Employees() {
               <button className={`px-2.5 py-1.5 ${view === "table" ? "bg-zinc-950 text-white" : "text-zinc-500 hover:text-zinc-900"}`} onClick={() => setView("table")} data-testid="dir-view-table"><ListBullets size={14}/></button>
               <button className={`px-2.5 py-1.5 ${view === "cards" ? "bg-zinc-950 text-white" : "text-zinc-500 hover:text-zinc-900"}`} onClick={() => setView("cards")} data-testid="dir-view-cards"><GridFour size={14}/></button>
             </div>
+            <Button size="sm" variant="outline" className="gap-1.5 h-9" data-testid="dir-print-pdf"
+              onClick={async () => {
+                try {
+                  const params = new URLSearchParams();
+                  if (q) params.set("q", q);
+                  if (deptId !== "all") params.set("department_id", deptId);
+                  if (branchId !== "all") params.set("branch_id", branchId);
+                  if (type !== "all") params.set("employee_type", type);
+                  const res = await api.get("/employees/directory-pdf?" + params.toString(), { responseType: "blob" });
+                  const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+                  const a = document.createElement("a");
+                  a.href = url; a.download = "employee_directory.pdf";
+                  document.body.appendChild(a); a.click(); a.remove();
+                  toast.success("Directory PDF generated");
+                } catch (err) { toast.error("Print failed"); }
+              }}>
+              <Printer size={14}/> Print PDF
+            </Button>
           </div>
         }
       >

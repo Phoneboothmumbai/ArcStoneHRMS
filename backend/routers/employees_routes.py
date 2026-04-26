@@ -1,10 +1,42 @@
 """Employee management."""
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from auth import require_roles, get_current_user, hash_password
 from db import get_db
 from models import EmployeeCreate, now_iso, uid
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
+
+
+@router.get("/directory-pdf")
+async def directory_pdf(
+    user=Depends(get_current_user),
+    branch_id: str = Query(None),
+    department_id: str = Query(None),
+    employee_type: str = Query(None),
+    q: str = Query(None),
+):
+    """Render the employee directory (with current filters) as a print-ready PDF."""
+    db = get_db()
+    cid = user.get("company_id")
+    flt = {"company_id": cid} if user["role"] != "super_admin" else {}
+    if branch_id: flt["branch_id"] = branch_id
+    if department_id: flt["department_id"] = department_id
+    if employee_type: flt["employee_type"] = employee_type
+    if q:
+        flt["$or"] = [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"email": {"$regex": q, "$options": "i"}},
+            {"employee_code": {"$regex": q, "$options": "i"}},
+            {"job_title": {"$regex": q, "$options": "i"}},
+        ]
+    rows = await db.employees.find(flt, {"_id": 0}).sort("name", 1).to_list(5000)
+    company = await db.companies.find_one({"id": cid}, {"_id": 0}) or {}
+    from pdf_render import render_directory_pdf
+    filters = {"Search": q, "Department": department_id, "Branch": branch_id, "Type": employee_type}
+    pdf = render_directory_pdf(rows, company.get("name", "Company"), filters=filters)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": "attachment; filename=employee_directory.pdf"})
 
 
 @router.get("")

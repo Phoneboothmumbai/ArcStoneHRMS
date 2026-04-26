@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../context/AuthContext";
-import { TreeStructure, MapPin, Stack, Briefcase, MagnifyingGlass, ArrowsClockwise, CaretDown, CaretRight, PencilSimple } from "@phosphor-icons/react";
+import { TreeStructure, MapPin, Stack, Briefcase, MagnifyingGlass, ArrowsClockwise, CaretDown, CaretRight, PencilSimple, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 const TEMPLATES = [
@@ -199,6 +199,21 @@ export default function OrgChart() {
           </div>
           <Button size="sm" variant="outline" onClick={load} className="gap-1.5" data-testid="org-refresh">
             <ArrowsClockwise size={14} className={loading ? "animate-spin" : ""}/> Refresh
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" data-testid="org-print-pdf"
+            onClick={async () => {
+              try {
+                const params = new URLSearchParams({ template });
+                if (search) params.set("search", search);
+                const res = await api.get("/org/chart-pdf?" + params.toString(), { responseType: "blob" });
+                const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+                const a = document.createElement("a");
+                a.href = url; a.download = "orgchart_" + template + ".pdf";
+                document.body.appendChild(a); a.click(); a.remove();
+                toast.success("PDF generated");
+              } catch (err) { toast.error("Print failed"); }
+            }}>
+            <Printer size={14}/> Print PDF
           </Button>
         </div>
       </div>

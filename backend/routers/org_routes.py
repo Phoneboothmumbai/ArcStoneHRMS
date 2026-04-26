@@ -1,5 +1,9 @@
 """Organization hierarchy: regions, countries, branches, departments + tree."""
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+
 from auth import get_current_user, require_roles
 from db import get_db
 from models import OrgNodeCreate, now_iso, uid
@@ -133,6 +137,23 @@ async def create_department(body: OrgNodeCreate, user=Depends(require_roles("sup
 # Chart templates — reporting / functional / location / project
 # =========================================================================
 HR_ROLES = ("super_admin", "company_admin", "country_head", "region_head", "branch_manager")
+
+
+@router.get("/chart-pdf")
+async def chart_pdf(
+    template: str = "reporting",
+    search: Optional[str] = Query(None),
+    user=Depends(get_current_user),
+):
+    """Render the current org-chart view to a print-ready PDF."""
+    chart_data = await chart(template=template, user=user)  # reuse the in-process function below
+    db = get_db()
+    company = await db.companies.find_one({"id": user.get("company_id")}, {"_id": 0}) or {}
+    from pdf_render import render_orgchart_pdf
+    pdf = render_orgchart_pdf(chart_data, company.get("name", "Company"), search=search)
+    fname = f"orgchart_{template}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
 @router.get("/chart")
