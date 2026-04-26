@@ -13,6 +13,37 @@
 
 ## What's been implemented
 
+### Apr 26, 2026 — HR Lifecycle, Self-Service, State Statutory & Compliance 🌟
+**Big Phase A+B+C ship — 4 new modules, 17/17 backend tests + frontend smokes pass. Production-deployed to Hetzner.**
+
+**Backend** (`/api/lifecycle/*`, `/api/loan-requests`, `/api/insurance/*`, `/api/lwf-rules`, `/api/compliance-bulletins`, `/api/expenses/.../voucher-pdf`):
+- **Lifecycle alerts engine** — `POST /api/lifecycle/scan` walks all employees and generates idempotent alerts for: probation completion (config months from DOJ), annual salary review (config months), employee birthday, festival greetings (7 default Indian festivals). Decisions: `yes/no/later/dismiss`. On YES:
+  - **Probation** → auto-creates an `appointment` letter template if missing + generates a personalised employment letter + notifies the employee.
+  - **Salary review** → takes new CTC, archives current compensation, recomputes lines via `_compute_lines`, inserts new `employee_salaries` row → next payroll run reflects automatically.
+- **Lifecycle settings** (`/api/lifecycle/settings`) — probation/review months, birthday template, festivals list, default new-joiner broadcast scope.
+- **New joiner welcome** (`POST /api/lifecycle/announce-new-joiner`) — HR picks scope (company/department/branch/team) → broadcasts a notification + records an audit alert.
+- **Loan Requests** (`/api/loan-requests`) — employee submits → HR decides → on approve, creates a real `employee_loans` row via the existing scheduler with the chosen interest %, start month, and EMI breakdown.
+- **Insurance Policies** (`/api/insurance/policies`) — HR uploads policy with TPA, sum insured, coverage notes, claim steps, family floater toggles. Employee `POST /api/insurance/claim` creates a helpdesk ticket pre-tagged in an auto-created "Insurance Claims" category — claims flow through the existing SLA engine.
+- **State-wise LWF** (`/api/lwf-rules`) — 17 Indian states seeded with employee + employer amounts, cycle (monthly / half-yearly / yearly), and deduction months. HR can edit per state.
+- **Payroll integration** — `payroll_run_routes::compute_run` now injects an `LWF` deduction line + `LWF_ER` employer-contribution line based on the employee's `branch.state_code` and the run month's calendar match against the state's `deduction_months`.
+- **Compliance Bulletins** (`/api/compliance-bulletins`) — HR/super-admin authored notices (PF, ESIC, LWF, Tax) with category, impact states, source URL, and pinning. Auto-fans-out notifications to all HR users.
+- **Expense Voucher PDF** (`GET /api/expenses/{id}/voucher-pdf`) — produces a signed PDF voucher (employee block, line items table, approval chain, sign-off) for any approved/reimbursed expense claim. Uses new `pdf_render::render_expense_voucher_pdf` (reportlab).
+- **Branches** now carry `state_code`, `state_name`, `pincode`, `phone`, `is_head_office` — drives multi-location LWF/PT.
+- **Employees** now carry `date_of_birth`, `probation_end_date`, `next_salary_review_on` — drives lifecycle scan.
+
+**Frontend** (4 new pages + 1 enhancement):
+- **`/app/hr-alerts`** — color-coded alert cards (probation/salary review/birthday/festival/joiner), Yes/No/Later inline actions, decision dialog with new-CTC input for salary reviews, snooze date picker for "later", Settings dialog with festival toggles.
+- **`/app/loan-requests`** — employee submission form (type/amount/tenure/purpose), HR decision dialog with interest % + start month, status tabs.
+- **`/app/insurance`** — HR add-policy dialog with kind/insurer/TPA/sum-insured/family-floater toggles + coverage/claim markdown; employee sees policy cards with collapsible coverage/claim sections + "Raise a claim" CTA.
+- **`/app/compliance`** — Bulletins tab (publish + pin + categorize) + LWF rules tab (per-state edit dialog). 17 states pre-loaded.
+- **`/app/expenses`** — "Voucher PDF" button surfaces for approved/reimbursed claims, downloads valid PDF.
+
+**Sidebar** — "HR Alerts" added under People; "Loan Requests", "Compliance", "Insurance" added under Payroll.
+
+**Tests** — `/app/test_reports/iteration_15.json` — **17/17 backend + 5/5 frontend smokes pass**, zero action items. Coverage: scan idempotency, decide flows (yes triggers letter/comp), loan request → real loan, insurance claim → ticket, LWF seed + role-gated update, compliance bulletin notification fan-out, expense PDF + 400 on non-approved.
+
+**Production-deployed** to Hetzner (138.199.146.191): backend rsynced, frontend rebuilt, supervisor restarted. Smoke-tested live: scan generated 42 probation + 33 salary review alerts on the production seed.
+
 ### Apr 24, 2026 — Daily Attendance View + Demo Data Seeder 📅
 **Closed the open in-progress task from the previous session.** 13/13 new backend tests + full frontend flow pass.
 
