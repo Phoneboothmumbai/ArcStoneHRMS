@@ -1,3 +1,21 @@
+### Feb 26, 2026 (Late evening) — Production deploy + auto-publish pipeline 🚀
+**Production landing page now serves the latest APK live, and a single command will keep it that way forever.**
+
+- **Pushed to prod** (`138.199.146.191`):
+  - `backend/routers/public_routes.py` (new EAS-redirect logic + httpx HEAD/Range size fetch)
+  - `frontend/src/components/AppShell.jsx` + `frontend/src/pages/Landing.jsx`
+  - Patched `/opt/arcstone/backend/.env` with `MOBILE_APK_REMOTE_URL` + `MOBILE_APP_VERSION="1.0.1"`
+  - Installed `httpx` in the prod venv
+  - Rebuilt frontend in-place (`yarn build`) so static bundle picks up the prod backend URL
+  - Restarted `arcstone-backend` via supervisor
+- **Verified live**: `http://138.199.146.191/` shows "Mobile · v1.0.1", "8.0 (Oreo) · 70.7 MB APK", "Install Arcstone app" button → 302 → live EAS APK, "Signed native APK · Play Store listing coming soon" subtitle, QR code encodes redirect endpoint.
+- **New: `/app/scripts/release-apk.sh`** (also at `/opt/arcstone/scripts/release-apk.sh` on prod) — one-shot release pipeline:
+  - `EXPO_TOKEN=… ./release-apk.sh` → kicks off EAS build, polls status every 30s, parses APK URL, SSH-patches prod `.env`, restarts backend, validates `/api/public/mobile-app`.
+  - `./release-apk.sh --reuse <build-id>` → republishes an already-finished build (zero rebuild cost).
+  - `./release-apk.sh --ota "fix: payslip layout"` → ships a JS-only OTA update via `eas update --branch preview` (no APK rebuild, reaches devices on next launch).
+- Future flow: push web change → `eas update --branch preview` → done in 30 seconds. Push native change → `release-apk.sh` → APK rebuilt, prod auto-updated, ~10 min total. The QR/button on the landing page **always** serves the latest.
+
+
 ### Feb 26, 2026 (Late PM) — Mobile feature parity + OTA pipeline 📱✨
 **Mobile app now mirrors the entire employee web experience.** APK v1.0.1 (versionCode 2) shipped. From here, every web change reaches phones in seconds via `eas update --branch preview` — no APK rebuild, no reinstall.
 
