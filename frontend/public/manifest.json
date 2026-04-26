@@ -1,0 +1,43 @@
+{
+  "name": "Arcstone HRMS",
+  "short_name": "Arcstone",
+  "description": "Enterprise HRMS — attendance, payroll, leave, approvals, and lifecycle alerts in your pocket.",
+  "start_url": "/login?utm_source=pwa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "scope": "/",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Check-in",
+      "url": "/app/attendance?action=checkin",
+      "description": "Quick attendance check-in"
+    },
+    {
+      "name": "My payslips",
+      "url": "/app/payslips",
+      "description": "View and download payslips"
+    },
+    {
+      "name": "Apply leave",
+      "url": "/app/leave?action=new",
+      "description": "Submit a leave request"
+    }
+  ]
+}
