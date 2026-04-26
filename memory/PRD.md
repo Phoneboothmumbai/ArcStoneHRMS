@@ -13,6 +13,15 @@
 
 ## What's been implemented
 
+### Apr 26, 2026 (Late PM) — Native Android APK live 📱
+- **APK ready for download/sideload**: https://expo.dev/artifacts/eas/agpTzX2bsvC8m2LgvN4AmG.apk (signed, internal-distribution build, ~50 MB).
+- EAS project: `@phonebooth/arcstone-hrms` (id `5a04fa8a-bd56-43ee-89c1-bd1c08a87fcd`); keystore stored on Expo cloud and reusable for all future builds.
+- Includes: geofenced check-in/out, background location pings, selfie camera, biometric unlock, push-notification stub. Hits `https://people-partner-cloud.preview.emergentagent.com/api/mobile/*` endpoints.
+- **To rebuild**: `cd /app/mobile && EXPO_TOKEN=... eas build --profile preview --platform android --non-interactive` (no further setup needed — owner/projectId/keystore all linked).
+- **To switch backend**: edit `expo.extra.apiBaseUrl` in `/app/mobile/app.json` (e.g., to the Hetzner prod URL `http://138.199.146.191:port`) and rebuild.
+
+
+
 ### Apr 26, 2026 (PM) — Group D: Org Chart, Directory & Multi-Location 🌳
 **17/17 backend + frontend tests pass · production-deployed.**
 

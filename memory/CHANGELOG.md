@@ -1,3 +1,15 @@
+### Feb 26, 2026 — Native Android APK shipped 📱✅
+**The mobile app is real.** First production-grade APK successfully built via Expo EAS cloud.
+
+- **EAS project linked**: `@phonebooth/arcstone-hrms` (project ID: `5a04fa8a-bd56-43ee-89c1-bd1c08a87fcd`) — https://expo.dev/accounts/phonebooth/projects/arcstone-hrms
+- **Build #1**: `4b092079-b3d7-4bb0-9ce8-bb9cca58beb0` (preview profile, Android, internal distribution, SDK 51, v1.0.0, versionCode 1) — finished 4/26/2026 at 18:04 UTC, ~6 min build time.
+- **APK download URL**: https://expo.dev/artifacts/eas/agpTzX2bsvC8m2LgvN4AmG.apk
+- **Keystore**: auto-generated and stored on Expo's servers (reused for all future builds — same signing identity).
+- **Bundle**: `io.arcstone.hrms` (Android package), with full geofence + background location + camera + biometric + notification permissions wired in `app.json`.
+- **API base URL** baked into the build: `https://people-partner-cloud.preview.emergentagent.com`. Change `expo.extra.apiBaseUrl` in `app.json` and rebuild to point to a different backend (e.g., Hetzner production).
+- **Next builds**: just run `EXPO_TOKEN=... eas build --profile preview --platform android --non-interactive` from `/app/mobile/` — keystore and project are already linked.
+
+
 ## What's been implemented
 
 ### Feb 24, 2026 — Module Switcher + Command Palette (⌘K) 🎛️
