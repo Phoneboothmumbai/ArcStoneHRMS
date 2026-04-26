@@ -147,6 +147,30 @@ async def mark_reimbursed(eid: str, body: dict, user=Depends(require_roles(*ADMI
     return {"ok": True}
 
 
+@expenses_router.get("/{eid}/voucher-pdf")
+async def voucher_pdf(eid: str, user=Depends(get_current_user)):
+    """Download approved-expense voucher as a signed PDF."""
+    from fastapi.responses import Response
+    from pdf_render import render_expense_voucher_pdf
+    db = get_db()
+    cid = user.get("company_id")
+    claim = await db.expense_claims.find_one({"id": eid, "company_id": cid}, {"_id": 0})
+    if not claim:
+        raise HTTPException(404, "Claim not found")
+    if user["role"] == "employee" and claim.get("employee_id") != user.get("employee_id"):
+        raise HTTPException(403, "Forbidden")
+    if claim.get("status") not in ("approved", "reimbursed"):
+        raise HTTPException(400, "Voucher is generated only after the claim is approved")
+    company = await db.companies.find_one({"id": cid}, {"_id": 0}) or {}
+    pdf_bytes = render_expense_voucher_pdf(
+        claim, company_name=company.get("name", "Company"),
+        legal_entity=company.get("legal_entity_name"),
+    )
+    fname = f"voucher_{(claim.get('id') or '')[:8]}.pdf"
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 # ---------------------------------------------------------------------------
 # Travel requests
 # ---------------------------------------------------------------------------

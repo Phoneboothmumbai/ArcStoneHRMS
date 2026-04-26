@@ -104,6 +104,19 @@ function ClaimsTab() {
                       <Button size="sm" onClick={()=>decide(r.id,"approve")} className="gap-1"><Check size={12}/> Approve</Button>
                       <Button size="sm" variant="outline" onClick={()=>decide(r.id,"reject")} className="gap-1"><X size={12}/> Reject</Button>
                     </>)}
+                    {(r.status === "approved" || r.status === "reimbursed") && (
+                      <Button size="sm" variant="outline" data-testid={`voucher-${r.id}`}
+                        onClick={async () => {
+                          try {
+                            const res = await api.get(`/expenses/${r.id}/voucher-pdf`, { responseType: "blob" });
+                            const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+                            const a = document.createElement("a");
+                            a.href = url; a.download = `voucher_${r.id.slice(0,8)}.pdf`;
+                            document.body.appendChild(a); a.click(); a.remove();
+                          } catch (e) { /* fall through */ }
+                        }}
+                      >Voucher PDF</Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

@@ -49,6 +49,10 @@ import ProcurementOverview, {
   PurchaseOrdersPage, PurchaseOrderDetail,
 } from "./pages/Procurement";
 import VendorPortal from "./pages/VendorPortal";
+import HRAlerts from "./pages/HRAlerts";
+import LoanRequests from "./pages/LoanRequests";
+import Insurance from "./pages/Insurance";
+import Compliance from "./pages/Compliance";
 import { ModulesProvider } from "./context/ModulesContext";
 
 function RoleRedirect() {
@@ -140,6 +144,10 @@ function App() {
           <Route path="/app/workflows" element={<ProtectedRoute roles={["super_admin", "company_admin", "country_head", "region_head"]}><Workflows /></ProtectedRoute>} />
           <Route path="/app/modules" element={<ProtectedRoute roles={["super_admin"]}><Modules /></ProtectedRoute>} />
           <Route path="/app/billing" element={<ProtectedRoute roles={["company_admin", "country_head", "region_head"]}><BillingAndModules /></ProtectedRoute>} />
+          <Route path="/app/hr-alerts" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head"]}><HRAlerts /></ProtectedRoute>} />
+          <Route path="/app/loan-requests" element={<ProtectedRoute><LoanRequests /></ProtectedRoute>} />
+          <Route path="/app/insurance" element={<ProtectedRoute><Insurance /></ProtectedRoute>} />
+          <Route path="/app/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

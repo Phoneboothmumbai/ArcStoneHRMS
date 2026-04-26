@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 15 — Tested Lifecycle Alerts (scan/list/decide/announce/settings), Loan Requests (employee→HR), Insurance Policies + claim→ticket, LWF rules (17 default states + HR-only update), Compliance Bulletins, Expense Voucher PDF, plus frontend smoke on /app/hr-alerts, /app/loan-requests, /app/insurance, /app/compliance, /app/expenses. 17/17 backend pytests pass. All five frontend pages render with correct data, controls, and data-testids. No critical bugs found.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration15_lifecycle_etc.py",
+    "/app/test_reports/pytest/iteration_15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "lifecycle_routes.py — scan() currently has NO try/except around per-employee processing; one bad employee record (e.g. malformed date_of_birth that slips _md_dd) could 500 the whole scan. Wrap each loop body in a try/except and log+continue.",
+    "lifecycle_routes.py — _create_notification fired in inner loops (festival broadcast and announce_new_joiner). For tenants with 5k+ users this is 5k sequential single-document inserts. Use insert_many for bulk fan-out.",
+    "statutory_compliance.py — ensure_lwf_seed uses len(DEFAULT_LWF_STATES) gate (>=17) but only checks count; if a tenant deleted some default rows, seed will skip re-insert because count gate trips. Consider iterating individual state_codes always (the per-row already-exists check is already in place — just remove the early-return at the count check).",
+    "employee_self_service.py — InsurancePolicy model has documents: List[dict] with no size cap; HR could attach a 50MB base64 PDF and break Mongo doc limit. Add per-document size guard like expenses_routes does (MAX_RECEIPT_BYTES).",
+    "employee_self_service.py — list_policies returns full coverage_summary, claim_steps_markdown, documents to every employee. Token field never exposed (good). Consider stripping documents.base64_data on list view to reduce payload.",
+    "expenses_routes.voucher-pdf — renders synchronously in request thread; render_expense_voucher_pdf may be slow with many items. Acceptable for MVP but add streaming/async for production.",
+    "lifecycle_routes.scan — caps employees.to_list(5000); will silently truncate for very large tenants. Same pattern as iteration_14 callout."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration15_lifecycle_etc.py"
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "100% (5/5 pages + LWF tab + Voucher buttons render)" },
+  "test_credentials": "HR: hr@acme.io / Hr@12345 (worked). Employee: employee@acme.io / Employee@123 (worked).",
+  "seed_data_creation": "Test created: 1 lifecycle scan run on real ACME data (idempotent), 2 loan_requests (1 approved → 1 employee_loans row, 1 rejected), 1 TEST_iter15 insurance policy + 1 helpdesk ticket via /api/insurance/claim, 1 TEST_iter15 compliance bulletin (pinned), 1 TEST_iter15 expense voucher (approved). Probation YES path generated 1 appointment letter. Salary review YES updated CTC to 1500000 for one employee. LWF MH rule was set to 25/75. NOT cleaned up — main agent should wipe TEST_ entries if regression-sensitive.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration15_lifecycle_etc.py covers all 17 endpoints/flows from the iteration-15 spec end-to-end with create→GET verify and proper 400/403/404 negative paths. Salary review needs an employee with next_salary_review_on already due — the seeded ACME demo data satisfies this. If reseeded, the salary_review test will pytest.skip cleanly. Voucher PDF test creates+approves its own claim each run (uses category='travel_taxi' and field='expense_date'). LWF integration into payroll compute (deduction_months) was NOT tested by API — would require constructing a payroll run for a month in lwf.deduction_months on a branch with state_code=IN-MH; the existing demo data does not seed branch.state_code, so this required direct mongo prep that the spec explicitly flagged as out-of-scope. Recommend main agent add a branch-state PUT endpoint.",
+  "rca of the issue": "First test run hit a 422 on /api/expenses POST because the test used legacy field 'spent_on' + free-text 'category':'Travel'; the new ExpenseClaim model uses 'expense_date' and a Literal enum (travel_taxi etc.). Fixed in test only — backend behaviour is correct."
+}

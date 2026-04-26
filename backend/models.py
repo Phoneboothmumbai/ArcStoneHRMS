@@ -128,6 +128,11 @@ class Branch(BaseDoc):
     name: str
     city: str
     address: Optional[str] = None
+    state_code: Optional[str] = None        # ISO 3166-2 e.g. "IN-MH" — drives LWF/PT
+    state_name: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    is_head_office: bool = False
     manager_user_id: Optional[str] = None
 
 
@@ -164,6 +169,9 @@ class Employee(BaseDoc):
     role_in_company: Role = "employee"
     joined_on: str = Field(default_factory=now_iso)
     status: Literal["active", "onboarding", "terminated"] = "active"
+    date_of_birth: Optional[str] = None        # YYYY-MM-DD — drives birthday greetings
+    probation_end_date: Optional[str] = None   # YYYY-MM-DD — drives probation completion alert
+    next_salary_review_on: Optional[str] = None  # YYYY-MM-DD — auto-set on hire/last increment
 
 
 class EmployeeCreate(BaseModel):
@@ -180,6 +188,8 @@ class EmployeeCreate(BaseModel):
     role_in_company: Role = "employee"
     create_login: bool = True
     password: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    probation_months: int = 6
 
 
 # ---------- Approval Engine (generic) ----------

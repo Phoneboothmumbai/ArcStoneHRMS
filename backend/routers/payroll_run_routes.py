@@ -191,6 +191,36 @@ async def compute_run(rid: str, user=Depends(require_roles(*ADMIN))):
         # TDS placeholder — Phase 2C wires investment declarations & tax engine
         tds = 0.0
 
+        # State-wise Labour Welfare Fund (LWF) — auto-applied if employee's
+        # branch belongs to an LWF state and the current period_month is a
+        # designated deduction month.
+        try:
+            run_month_int = int(run["period_month"][5:7])
+        except Exception:
+            run_month_int = None
+        if emp.get("branch_id") and run_month_int:
+            br = await db.branches.find_one({"id": emp["branch_id"]}, {"_id": 0})
+            br_state = (br or {}).get("state_code")
+            if br_state:
+                lwf = await db.lwf_rules.find_one(
+                    {"company_id": cid, "state_code": br_state, "applicable": True}, {"_id": 0},
+                )
+                if lwf and run_month_int in (lwf.get("deduction_months") or []):
+                    lwf_emp = float(lwf.get("employee_amount", 0) or 0)
+                    lwf_er = float(lwf.get("employer_amount", 0) or 0)
+                    if lwf_emp > 0:
+                        lines.append(PayslipLine(
+                            component_code="LWF", component_name=f"Labour Welfare Fund ({br_state})",
+                            kind="deduction", amount=round(lwf_emp, 2),
+                        ))
+                        total_ded += lwf_emp
+                    if lwf_er > 0:
+                        lines.append(PayslipLine(
+                            component_code="LWF_ER", component_name=f"LWF Employer ({br_state})",
+                            kind="employer_contribution", amount=round(lwf_er, 2),
+                        ))
+                        employer += lwf_er
+
         payslip = Payslip(
             company_id=cid, run_id=rid, period_month=run["period_month"],
             employee_id=s["employee_id"], employee_name=s["employee_name"], employee_code=s["employee_code"],

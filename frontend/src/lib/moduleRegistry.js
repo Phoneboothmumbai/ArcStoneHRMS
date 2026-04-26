@@ -7,7 +7,7 @@ import {
   HouseLine, UsersThree, TreeStructure, FolderSimpleStar, CalendarCheck, ClockClockwise,
   PackageIcon, Storefront, Buildings, ShieldCheck, FlowArrow, Stack, Receipt,
   UserCirclePlus, UserCircleMinus, UserCircle, CurrencyInr, Calendar, Handshake,
-  BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock,
+  BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock, Bell,
 } from "@phosphor-icons/react";
 
 // Helper role constants
@@ -40,6 +40,7 @@ export const MODULES = [
     description: "Employees, org structure, onboarding, offboarding.",
     items: [
       { to: "/app/hr",            label: "Overview",      icon: HouseLine },
+      { to: "/app/hr-alerts",     label: "HR Alerts",     icon: Bell, roles: ROLE_HR },
       { to: "/app/employees",     label: "Employees",     icon: UsersThree },
       { to: "/app/org-tree",      label: "Organization",  icon: TreeStructure },
       { to: "/app/onboarding",    label: "Onboarding",    icon: UserCirclePlus,  entitlement: "onboarding" },
@@ -78,6 +79,9 @@ export const MODULES = [
       { to: "/app/payroll",        label: "Compensation",  icon: CurrencyInr },
       { to: "/app/payroll-runs",   label: "Payroll Runs",  icon: Calendar },
       { to: "/app/fnf-loans",      label: "F&F & Loans",   icon: Handshake },
+      { to: "/app/loan-requests",  label: "Loan Requests", icon: Handshake },
+      { to: "/app/compliance",     label: "Compliance",    icon: ShieldCheck, roles: ROLE_HR },
+      { to: "/app/insurance",      label: "Insurance",     icon: ShieldCheck },
     ],
   },
   {

@@ -321,3 +321,122 @@ def render_form16_pdf(data: dict, company_name: str = "Company", legal_entity: O
     doc.build(flow)
     buf.seek(0)
     return buf.read()
+
+
+def render_expense_voucher_pdf(claim: dict, company_name: str = "Company", legal_entity: Optional[str] = None) -> bytes:
+    """Generate a signed expense voucher PDF for an approved expense claim."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, leftMargin=16*mm, rightMargin=16*mm, topMargin=14*mm, bottomMargin=14*mm,
+        title=f"Expense Voucher {claim.get('id','')[:8]}",
+    )
+    flow = []
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontSize=14, spaceAfter=4)
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=10, textColor=colors.HexColor("#525252"), spaceAfter=8)
+    body = ParagraphStyle("b", parent=styles["BodyText"], fontSize=9, leading=12)
+    tiny = ParagraphStyle("t", parent=styles["BodyText"], fontSize=7.5, textColor=colors.HexColor("#71717a"))
+
+    flow.append(Paragraph(company_name, h1))
+    if legal_entity:
+        flow.append(Paragraph(legal_entity, h2))
+    flow.append(Paragraph("EXPENSE REIMBURSEMENT VOUCHER", h2))
+
+    # Employee block
+    rows = [
+        ["Voucher No.",   claim.get("id","")[:12].upper()],
+        ["Employee",      f"{claim.get('employee_name','')} ({claim.get('employee_code','')})"],
+        ["Claim Date",    (claim.get('created_at') or '')[:10]],
+        ["Status",        (claim.get('status') or '').upper()],
+        ["Currency",      claim.get('currency','INR')],
+    ]
+    if claim.get("approved_at") or claim.get("decided_at"):
+        rows.append(["Approved On", (claim.get('approved_at') or claim.get('decided_at') or '')[:10]])
+    t = Table(rows, colWidths=[35*mm, 130*mm])
+    t.setStyle(TableStyle([
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica"), ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("TEXTCOLOR", (0,0), (0,-1), colors.HexColor("#525252")),
+        ("LINEBELOW", (0,0), (-1,-1), 0.25, colors.HexColor("#e4e4e7")),
+        ("LEFTPADDING", (0,0), (-1,-1), 0), ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+    ]))
+    flow.append(t)
+    flow.append(Spacer(1, 4*mm))
+
+    # Line items
+    items = claim.get("items") or [{
+        "category": claim.get("category", "Expense"),
+        "description": claim.get("description", ""),
+        "date": (claim.get("expense_date") or claim.get("created_at") or "")[:10],
+        "amount": claim.get("amount", 0),
+    }]
+    head = ["#", "Date", "Category", "Description", "Amount"]
+    data = [head]
+    total = 0.0
+    for i, it in enumerate(items, 1):
+        amt = float(it.get("amount") or 0)
+        total += amt
+        data.append([str(i), (it.get("date","") or "")[:10],
+                     (it.get("category","") or "").title(),
+                     it.get("description","") or "—", _inr(amt)])
+    data.append(["", "", "", "TOTAL", _inr(total)])
+    tt = Table(data, colWidths=[8*mm, 22*mm, 30*mm, 70*mm, 35*mm])
+    tt.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#f4f4f5")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 8.5),
+        ("ALIGN", (4,0), (4,-1), "RIGHT"),
+        ("LINEBELOW", (0,0), (-1,-2), 0.25, colors.HexColor("#e4e4e7")),
+        ("FONTNAME", (3,-1), (4,-1), "Helvetica-Bold"),
+        ("LINEABOVE", (3,-1), (4,-1), 1, colors.black),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+    ]))
+    flow.append(tt)
+    flow.append(Spacer(1, 6*mm))
+
+    # Approval chain
+    chain = claim.get("approval_chain") or []
+    if not chain and (claim.get("approved_at") or claim.get("decided_at")):
+        chain = [{
+            "approver_name": claim.get("decided_by_name", "HR / Manager"),
+            "approver_role": "Approver",
+            "decided_at": claim.get("approved_at") or claim.get("decided_at"),
+            "comment": claim.get("decision_note", ""),
+        }]
+    if chain:
+        flow.append(Paragraph("<b>Approval chain</b>", body))
+        achdata = [["Step", "Approver", "Role", "Decided", "Comment"]]
+        for i, step in enumerate(chain, 1):
+            achdata.append([
+                str(i), step.get("approver_name", ""), step.get("approver_role", ""),
+                (step.get("decided_at") or "")[:16].replace("T", " "),
+                step.get("comment", ""),
+            ])
+        ac = Table(achdata, colWidths=[12*mm, 45*mm, 35*mm, 35*mm, 38*mm])
+        ac.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#f4f4f5")),
+            ("FONTSIZE", (0,0), (-1,-1), 8),
+            ("LINEBELOW", (0,0), (-1,-1), 0.2, colors.HexColor("#e4e4e7")),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ]))
+        flow.append(ac)
+        flow.append(Spacer(1, 6*mm))
+
+    # Sign-off
+    sig = Table([
+        ["", "", ""],
+        ["Prepared by (Employee)", "Approved by", "Authorized Signatory"],
+    ], colWidths=[55*mm, 55*mm, 55*mm])
+    sig.setStyle(TableStyle([
+        ("LINEABOVE", (0,1), (-1,1), 0.5, colors.black),
+        ("FONTSIZE", (0,1), (-1,1), 8), ("ALIGN", (0,1), (-1,1), "CENTER"),
+        ("TEXTCOLOR", (0,1), (-1,1), colors.HexColor("#525252")),
+        ("BOTTOMPADDING", (0,0), (-1,0), 18),
+    ]))
+    flow.append(Spacer(1, 12*mm))
+    flow.append(sig)
+    flow.append(Spacer(1, 8*mm))
+    flow.append(Paragraph("This is a computer-generated voucher. No physical signature required.", tiny))
+
+    doc.build(flow)
+    buf.seek(0)
+    return buf.read()

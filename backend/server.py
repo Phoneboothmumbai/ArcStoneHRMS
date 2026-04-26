@@ -79,6 +79,15 @@ from routers.procurement_routes import (
     portal_router as procurement_portal_router,
 )
 from routers.demo_data_routes import router as demo_data_router
+from routers.lifecycle_routes import router as lifecycle_router
+from routers.employee_self_service import (
+    loan_req_router as ess_loan_router,
+    insurance_router as ess_insurance_router,
+)
+from routers.statutory_compliance import (
+    router as lwf_router,
+    bulletin_router as compliance_bulletin_router,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -176,6 +185,11 @@ app.include_router(procurement_rfq_router)
 app.include_router(procurement_po_router)
 app.include_router(procurement_portal_router)
 app.include_router(demo_data_router)
+app.include_router(lifecycle_router)
+app.include_router(ess_loan_router)
+app.include_router(ess_insurance_router)
+app.include_router(lwf_router)
+app.include_router(compliance_bulletin_router)
 
 app.add_middleware(
     CORSMiddleware,
