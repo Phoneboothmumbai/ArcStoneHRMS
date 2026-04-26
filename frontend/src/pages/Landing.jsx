@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CheckCircle, Globe, Stack, TreeStructure, Users, Buildings, CurrencyDollar, ShieldCheck, Lightning } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, CheckCircle, Globe, Stack, TreeStructure, Users, Buildings, CurrencyDollar, ShieldCheck, Lightning, DeviceMobile, AndroidLogo, AppleLogo, DownloadSimple, Info, EnvelopeSimple } from "@phosphor-icons/react";
 import { Button } from "../components/ui/button";
+import { api } from "../lib/api";
 
 const FEATURES = [
   { icon: TreeStructure, label: "Multi-region hierarchy", text: "Regions → Countries → Branches → Departments. Model any org, from 50 to 50,000." },
@@ -24,6 +26,7 @@ export default function Landing() {
           <nav className="hidden md:flex items-center gap-8 text-sm">
             <a href="#platform" className="hover:text-zinc-600 transition-colors">Platform</a>
             <a href="#reseller" className="hover:text-zinc-600 transition-colors">Reseller program</a>
+            <a href="#mobile-app" className="hover:text-zinc-600 transition-colors">Mobile app</a>
             <a href="#architecture" className="hover:text-zinc-600 transition-colors">Architecture</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -148,6 +151,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Mobile App download */}
+      <MobileAppSection />
+
       {/* Architecture note */}
       <section className="py-24 bg-white border-t border-zinc-200" id="architecture" data-testid="architecture-section">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
@@ -214,5 +220,141 @@ function Tier({ num, title, text }) {
       <div className="font-display font-semibold text-lg mt-2">{title}</div>
       <p className="text-sm text-zinc-600 mt-2 leading-relaxed">{text}</p>
     </div>
+  );
+}
+
+function MobileAppSection() {
+  const [meta, setMeta] = useState(null);
+  useEffect(() => { api.get("/public/mobile-app").then(r => setMeta(r.data)).catch(()=>{}); }, []);
+
+  // Build absolute APK URL so QR code works from any device
+  const backendBase = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+  const apkUrl = backendBase + "/api/public/mobile-app/android";
+  const qrApk = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(apkUrl)}`;
+  const iosUrl = (meta && (meta.ios?.testflight_url || meta.ios?.app_store_url)) || `mailto:${meta?.support_email || "support@arcstone.io"}?subject=Arcstone%20iOS%20TestFlight%20invite`;
+  const qrIos = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(iosUrl)}`;
+
+  return (
+    <section id="mobile-app" className="py-24 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white" data-testid="mobile-app-section">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+          {/* Left — pitch */}
+          <div className="lg:col-span-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 border border-zinc-700 rounded-full bg-zinc-900 text-xs tracking-wide" data-testid="mobile-badge">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+              <span className="text-zinc-300">Mobile app · v{meta?.version || "—"}</span>
+            </div>
+            <h2 className="font-display font-black text-4xl sm:text-5xl leading-[1.05] tracking-tight mt-6" data-testid="mobile-title">
+              Arcstone, in<br/>your pocket.
+            </h2>
+            <p className="text-lg text-zinc-400 max-w-md mt-6 leading-relaxed" data-testid="mobile-sub">
+              Selfie + geofence check-in, leave, payslips, approvals and lifecycle alerts — all native, all offline-friendly. No login required to download.
+            </p>
+            <ul className="mt-8 space-y-2 text-sm text-zinc-300" data-testid="mobile-feature-list">
+              {(meta?.release_notes || []).map((r, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <CheckCircle size={16} weight="fill" className="text-emerald-400 mt-0.5 flex-none"/>
+                  <span>{r}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-10 pt-6 border-t border-zinc-800 text-xs text-zinc-500 flex items-start gap-2">
+              <Info size={14} className="mt-0.5 flex-none"/>
+              <span>Need help? Email <a href={`mailto:${meta?.support_email || "support@arcstone.io"}`} className="text-zinc-300 underline">{meta?.support_email || "support@arcstone.io"}</a> with your work email and we will set up your account before you install.</span>
+            </div>
+          </div>
+
+          {/* Right — download cards */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Android card */}
+            <article className="border border-zinc-800 rounded-2xl p-6 bg-zinc-900/60 backdrop-blur-sm hover:bg-zinc-900 transition-colors" data-testid="mobile-android-card">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><AndroidLogo size={22} weight="fill"/></div>
+                <div>
+                  <h3 className="font-display font-bold text-lg">Android</h3>
+                  <p className="text-xs text-zinc-500">{meta?.android?.min_android || "Android 8.0+"}{meta?.android?.apk_size_mb ? ` · ${meta.android.apk_size_mb} MB APK` : ""}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 mb-5">
+                <img src={qrApk} alt="Scan to download Android APK" className="w-28 h-28 rounded bg-white p-1.5 flex-none" data-testid="qr-android"/>
+                <div className="flex-1 text-xs text-zinc-400 leading-relaxed">
+                  Scan the QR with your phone camera, or tap below to install directly.
+                </div>
+              </div>
+
+              <a href={apkUrl} className="block" data-testid="mobile-android-download">
+                <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold rounded-lg gap-2"><DownloadSimple size={16} weight="bold"/>Download APK</Button>
+              </a>
+              {meta?.android?.play_store_url ? (
+                <a href={meta.android.play_store_url} target="_blank" rel="noreferrer" className="block mt-2" data-testid="mobile-playstore">
+                  <Button variant="outline" className="w-full bg-zinc-950 border-zinc-700 text-white hover:bg-zinc-800 rounded-lg gap-2"><ArrowUpRight size={14}/>Get on Play Store</Button>
+                </a>
+              ) : (
+                <div className="mt-2 text-[11px] text-zinc-500 text-center">Play Store listing — coming soon</div>
+              )}
+
+              <details className="mt-5 text-xs text-zinc-400" data-testid="mobile-android-instructions">
+                <summary className="cursor-pointer font-semibold text-zinc-300 hover:text-white">Installation steps ↓</summary>
+                <ol className="list-decimal list-inside space-y-1.5 mt-2.5 leading-relaxed">
+                  <li>Tap <b>Download APK</b> above on your Android phone.</li>
+                  <li>When prompted "This file may harm your device", tap <b>Download anyway</b> (the warning appears for any non-Play-Store APK).</li>
+                  <li>Open the downloaded file from the notification or your <b>Files → Downloads</b> folder.</li>
+                  <li>If asked, allow your browser/file-manager to <b>Install unknown apps</b> in Settings.</li>
+                  <li>Tap <b>Install</b> → <b>Open</b>. Sign in with your work email and the temporary password your HR shared.</li>
+                  <li>Allow camera + location permissions on first launch — required for selfie + geofenced check-in.</li>
+                </ol>
+              </details>
+            </article>
+
+            {/* iOS card */}
+            <article className="border border-zinc-800 rounded-2xl p-6 bg-zinc-900/60 backdrop-blur-sm hover:bg-zinc-900 transition-colors" data-testid="mobile-ios-card">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center"><AppleLogo size={22} weight="fill"/></div>
+                <div>
+                  <h3 className="font-display font-bold text-lg">iOS</h3>
+                  <p className="text-xs text-zinc-500">{meta?.ios?.min_ios ? `iOS ${meta.ios.min_ios}+` : "iOS 14+"} · iPhone & iPad</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 mb-5">
+                <img src={qrIos} alt="Scan to install on iOS" className="w-28 h-28 rounded bg-white p-1.5 flex-none" data-testid="qr-ios"/>
+                <div className="flex-1 text-xs text-zinc-400 leading-relaxed">
+                  Scan the QR with your iPhone camera or tap the button below.
+                </div>
+              </div>
+
+              {meta?.ios?.app_store_url ? (
+                <a href={meta.ios.app_store_url} target="_blank" rel="noreferrer" className="block" data-testid="mobile-appstore">
+                  <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-lg gap-2"><DownloadSimple size={16} weight="bold"/>Get on App Store</Button>
+                </a>
+              ) : meta?.ios?.testflight_url ? (
+                <a href={meta.ios.testflight_url} target="_blank" rel="noreferrer" className="block" data-testid="mobile-testflight">
+                  <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-lg gap-2"><DownloadSimple size={16} weight="bold"/>Join TestFlight</Button>
+                </a>
+              ) : (
+                <a href={`mailto:${meta?.support_email || "support@arcstone.io"}?subject=iOS%20TestFlight%20invite`} className="block" data-testid="mobile-ios-email">
+                  <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-lg gap-2"><EnvelopeSimple size={16} weight="bold"/>Request TestFlight invite</Button>
+                </a>
+              )}
+
+              <div className="mt-2 text-[11px] text-zinc-500 text-center">App Store listing — in review</div>
+
+              <details className="mt-5 text-xs text-zinc-400" data-testid="mobile-ios-instructions">
+                <summary className="cursor-pointer font-semibold text-zinc-300 hover:text-white">Installation steps ↓</summary>
+                <ol className="list-decimal list-inside space-y-1.5 mt-2.5 leading-relaxed">
+                  <li>Install Apple's free <b>TestFlight</b> app from the App Store (one-time).</li>
+                  <li>Tap <b>Join TestFlight</b> / <b>Request invite</b> above. Use the same Apple ID you registered with HR.</li>
+                  <li>You will receive an invitation email — tap <b>View in TestFlight</b>.</li>
+                  <li>Tap <b>Install</b> inside TestFlight to download Arcstone HRMS.</li>
+                  <li>Open the app, sign in with your work email + temporary password.</li>
+                  <li>Allow Camera + Location + Notifications when prompted.</li>
+                </ol>
+              </details>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

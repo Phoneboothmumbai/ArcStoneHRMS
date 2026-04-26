@@ -88,6 +88,7 @@ from routers.statutory_compliance import (
     router as lwf_router,
     bulletin_router as compliance_bulletin_router,
 )
+from routers.public_routes import router as public_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -190,6 +191,7 @@ app.include_router(ess_loan_router)
 app.include_router(ess_insurance_router)
 app.include_router(lwf_router)
 app.include_router(compliance_bulletin_router)
+app.include_router(public_router)
 
 app.add_middleware(
     CORSMiddleware,
