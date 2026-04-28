@@ -302,6 +302,53 @@ async def location_ping(body: LocationPingBody, user=Depends(get_current_user)):
         "last_lat": last.latitude, "last_lon": last.longitude,
         "last_seen_at": last.captured_at, "updated_at": now_iso(),
     }})
+
+    # Geofence breach detection — fire a breach notification if the LAST ping
+    # is farther than (employee.geofence_radius_m OR branch.radius_meters OR 500m)
+    # from the employee's home branch. Throttled to one alert per employee per hour
+    # to avoid flooding HR with repeated pings.
+    try:
+        if emp.get("branch_id"):
+            br = await db.branches.find_one({"id": emp["branch_id"]}, {"_id": 0})
+            if br and br.get("latitude") is not None and br.get("longitude") is not None:
+                threshold = int(
+                    emp.get("geofence_radius_m")
+                    or br.get("radius_meters")
+                    or 500
+                )
+                d = _haversine_m(last.latitude, last.longitude,
+                                 float(br["latitude"]), float(br["longitude"]))
+                if d > threshold:
+                    one_hour_ago = datetime.now(timezone.utc).replace(microsecond=0).isoformat()[:13]  # hour precision
+                    recent = await db.notifications.find_one({
+                        "company_id": cid, "kind": "geofence.breach",
+                        "employee_id": emp["id"],
+                        "created_at": {"$gte": one_hour_ago},
+                    }, {"_id": 0, "id": 1})
+                    if not recent:
+                        # Notify HR admins (company_admin role)
+                        admins = await db.users.find(
+                            {"company_id": cid, "role": {"$in": ["company_admin", "country_head", "region_head"]}},
+                            {"_id": 0, "id": 1},
+                        ).to_list(50)
+                        for adm in admins:
+                            await db.notifications.insert_one({
+                                "id": uid(), "company_id": cid,
+                                "recipient_user_id": adm["id"],
+                                "employee_id": emp["id"],
+                                "title": "Geofence breach",
+                                "body": (f"{emp.get('name')} is {int(d)} m from "
+                                         f"{br.get('name')} (threshold {threshold} m)."),
+                                "kind": "geofence.breach", "event": "geofence.breach",
+                                "link": f"/app/live-tracking?emp={emp['id']}",
+                                "distance_m": int(d),
+                                "threshold_m": threshold,
+                                "read": False, "read_at": None,
+                                "created_at": now_iso(), "updated_at": now_iso(),
+                            })
+    except Exception:
+        pass  # breach alerts are best-effort — never block the ping write
+
     return {"ok": True, "saved": len(docs)}
 
 

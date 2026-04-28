@@ -161,7 +161,8 @@ async def patch_employee(emp_id: str, body: dict,
     if not emp:
         raise HTTPException(404, "Employee not found")
     allowed = {"manager_id", "department_id", "branch_id", "job_title", "employee_type",
-               "date_of_birth", "phone", "project_ids", "department_name", "branch_name"}
+               "date_of_birth", "phone", "project_ids", "department_name", "branch_name",
+               "is_field_tracked", "geofence_radius_m"}
     patch = {k: v for k, v in body.items() if k in allowed}
     if not patch:
         raise HTTPException(400, "Nothing to update")

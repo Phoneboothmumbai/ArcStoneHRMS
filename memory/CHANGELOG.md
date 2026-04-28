@@ -1,3 +1,35 @@
+### Feb 26, 2026 (Late evening) — Live Location Tracking for admins 🗺️
+**HR admins / managers / designated viewers can now see their field team on a live map.**
+
+**Backend** (`/app/backend/`):
+- New `routers/live_tracking_routes.py` (~200 LoC) with `/api/admin/locations/*`:
+  - `GET /live` — latest ping per tracked employee. Computes distance-from-home-branch via Haversine, tags status (`on_duty` / `signed_out` / `offline`), sorts active employees first.
+  - `GET /trail/{eid}?date=YYYY-MM-DD` — day's polyline for one employee (reads `location_pings` collection).
+  - `GET/PATCH /viewers/{eid}` — admin-only: add/remove specific users (TL, mentor, etc.) who can view a particular employee's map beyond the default HR+direct-manager visibility.
+  - `POST /field-flag/{eid}` — toggle `is_field_tracked` + optional `geofence_radius_m` override.
+  - `GET /breaches` — recent geofence-breach notifications (manager-visibility-filtered).
+- `_can_view()` helper enforces RBAC: super_admin / company_admin / country_head / region_head → all employees. branch_manager/sub_manager/assistant_manager → direct reports only. Anyone in `location_viewers[]` → that one employee. Else 403.
+- **Geofence breach detection** wired into `POST /api/mobile/locations/ping`: if the latest ping is outside `geofence_radius_m` (or branch radius, default 500 m) from the employee's home branch, fires an in-app `geofence.breach` notification to every company_admin / country_head / region_head. Throttled to 1 alert / employee / hour so HR isn't spammed. Failures are swallowed — never blocks ping writes.
+- `employees_routes.py` PATCH allowlist extended with `is_field_tracked` + `geofence_radius_m` so admins can set these inline.
+
+**Frontend** (`/app/frontend/`):
+- New `pages/LiveTracking.jsx` (~400 LoC) — Leaflet + OpenStreetMap (no API key, free forever).
+  - **Left sidebar**: search, stats (On-duty / Tracked / Breaches badge), filtered employee list with status dots + distance-from-office. Click an employee to pan+zoom the map to them.
+  - **Full-screen map**: pulsing dot markers (green on-duty, zinc signed-out, red breached), popups with last-seen/distance, branch geofence circles (semi-transparent 500m ring), polyline trail for the selected employee + date.
+  - **Right drawer** (when employee selected): photo, status, last-seen, distance-from-branch, trail-date picker (with ping count), "Manage viewers" button.
+  - **Viewers modal**: admin-only, search employees with logins and add/remove as location viewers. Current viewers shown as chip list.
+  - **Flag employees modal**: admin-only, checkbox list to toggle `is_field_tracked` in bulk. Saves battery by ensuring only field staff send background pings.
+  - Auto-refresh every 30s.
+- Installed `leaflet` + `react-leaflet` (yarn). Leaflet CSS imported. Marker default icons pinned to cloudflare CDN URLs (avoids webpack's broken path resolution).
+- Privacy footer on every page render explaining the visibility rules.
+
+**Route wiring**: `/app/live-tracking` (ROLE_MANAGER+) → added under Time & Leave module next to Team Leave Planner.
+
+**Production deploy** (Hetzner `138.199.146.191`): 4 backend files + 5 frontend files + `package.json/yarn.lock` rsync'd, `yarn install --frozen-lockfile` + `yarn build` + backend restart. Verified `/api/admin/locations/live` returns 200 on prod.
+
+**SpineHR feature progress**: 5 / 8 quick-win features delivered (Loan EMI, Leave Planner, Resource Booking, Visitor Management, Live Tracking). Still pending: Document versioning + expiry alerts · Exit interview UI · Parallel approvals · Backdated/arrears payroll.
+
+
 ### Feb 26, 2026 (Late evening) — SpineHR Sprint 1: Loan EMI + Resource Booking + Visitor Mgmt + Leave Planner 🚀
 
 **Loan EMI auto-deduction in payroll** (`/app/backend/routers/payroll_run_routes.py`):

@@ -8,6 +8,7 @@ import {
   PackageIcon, Storefront, Buildings, ShieldCheck, FlowArrow, Stack, Receipt,
   UserCirclePlus, UserCircleMinus, UserCircle, CurrencyInr, Calendar, Handshake,
   BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock, Bell,
+  MapPin,
 } from "@phosphor-icons/react";
 
 // Helper role constants
@@ -67,6 +68,7 @@ export const MODULES = [
       { to: "/app/attendance-admin",  label: "Attendance Admin", icon: ClockClockwise, roles: ROLE_HR },
       { to: "/app/leave-admin",       label: "Leave Admin",      icon: CalendarCheck,   roles: ROLE_HR },
       { to: "/app/leave-planner",     label: "Team leave planner", icon: CalendarCheck, roles: ROLE_MANAGER },
+      { to: "/app/live-tracking",     label: "Live tracking",   icon: MapPin, roles: ROLE_MANAGER },
     ],
   },
   // ────────────────── Paid modules ──────────────────

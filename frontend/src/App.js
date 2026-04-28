@@ -57,6 +57,7 @@ import CompanySettings from "./pages/CompanySettings";
 import LeavePlanner from "./pages/LeavePlanner";
 import ResourceBooking from "./pages/ResourceBooking";
 import VisitorManagement from "./pages/VisitorManagement";
+import LiveTracking from "./pages/LiveTracking";
 import OrgChart from "./pages/OrgChart";
 import Branches from "./pages/Branches";
 import { ModulesProvider } from "./context/ModulesContext";
@@ -158,6 +159,7 @@ function App() {
           <Route path="/app/leave-planner" element={<ProtectedRoute><LeavePlanner /></ProtectedRoute>} />
           <Route path="/app/resource-booking" element={<ProtectedRoute><ResourceBooking /></ProtectedRoute>} />
           <Route path="/app/visitors" element={<ProtectedRoute><VisitorManagement /></ProtectedRoute>} />
+          <Route path="/app/live-tracking" element={<ProtectedRoute><LiveTracking /></ProtectedRoute>} />
           <Route path="/app/org-chart" element={<ProtectedRoute><OrgChart /></ProtectedRoute>} />
           <Route path="/app/branches" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Branches /></ProtectedRoute>} />
 
