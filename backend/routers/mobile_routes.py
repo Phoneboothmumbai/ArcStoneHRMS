@@ -207,6 +207,11 @@ async def mobile_checkin(body: CheckInBody, user=Depends(get_current_user)):
         "check_in": now_iso(),
         "check_in_lat": body.latitude, "check_in_lon": body.longitude,
         "check_in_accuracy": body.accuracy,
+        # Seed the "last known position" with the check-in coords so the live
+        # tracking map shows the employee immediately. Background pings
+        # overwrite these as they arrive.
+        "last_lat": body.latitude, "last_lon": body.longitude,
+        "last_seen_at": now_iso(),
         "site_id": site.get("id"), "site_name": site.get("name"),
         "check_in_distance_m": site.get("distance_m"),
         "check_in_selfie_id": selfie_id,
@@ -221,6 +226,16 @@ async def mobile_checkin(body: CheckInBody, user=Depends(get_current_user)):
         doc["created_at"] = now_iso()
         await db.attendance.insert_one(doc)
     doc.pop("_id", None)
+    # Drop a "check-in" ping into location_pings so the trail polyline starts
+    # at the check-in spot even before any background pings arrive.
+    await db.location_pings.insert_one({
+        "id": uid(), "company_id": cid, "employee_id": emp["id"],
+        "attendance_id": doc["id"], "on_date": today,
+        "latitude": body.latitude, "longitude": body.longitude,
+        "accuracy": body.accuracy, "speed": None, "heading": None, "battery": None,
+        "captured_at": now_iso(), "kind": "checkin",
+        "created_at": now_iso(),
+    })
     return {"ok": True, "checked_in_at": doc["check_in"], "site": site.get("name"),
             "distance_m": site.get("distance_m"), "attendance": doc}
 

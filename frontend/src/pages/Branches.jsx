@@ -31,7 +31,8 @@ export default function Branches() {
 
   function blank() {
     return { country_id: "", name: "", city: "", state_code: "", address: "",
-             pincode: "", phone: "", is_head_office: false };
+             pincode: "", phone: "", is_head_office: false,
+             latitude: "", longitude: "", radius_meters: 500 };
   }
 
   const load = async () => {
@@ -44,27 +45,49 @@ export default function Branches() {
 
   const submit = async () => {
     if (!f.name) { toast.error("Branch name required"); return; }
+    // Build coords payload (omit if blank)
+    const geo = {};
+    if (f.latitude !== "" && f.longitude !== "") {
+      const la = parseFloat(f.latitude), lo = parseFloat(f.longitude);
+      if (Number.isNaN(la) || Number.isNaN(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
+        toast.error("Coordinates must be valid: lat -90..90, lon -180..180"); return;
+      }
+      geo.latitude = la; geo.longitude = lo;
+      geo.radius_meters = parseInt(f.radius_meters, 10) || 500;
+    }
     try {
       if (editing) {
         const stateName = IN_STATES.find(s => s[0] === f.state_code)?.[1];
-        await api.put(`/org/branches/${editing.id}`, { ...f, state_name: stateName });
+        await api.put(`/org/branches/${editing.id}`, { ...f, ...geo, state_name: stateName });
         toast.success("Branch updated");
       } else {
         if (!f.country_id) { toast.error("Country required"); return; }
         await api.post("/org/branches", { name: f.name, parent_id: f.country_id, city: f.city, address: f.address });
         const stateName = IN_STATES.find(s => s[0] === f.state_code)?.[1];
-        // PUT to set state/HQ since POST doesn't accept these yet
         const just = (await api.get("/org/branches")).data.find(x => x.name === f.name && x.country_id === f.country_id);
         if (just) {
           await api.put(`/org/branches/${just.id}`, {
             state_code: f.state_code, state_name: stateName, pincode: f.pincode,
-            phone: f.phone, is_head_office: f.is_head_office,
+            phone: f.phone, is_head_office: f.is_head_office, ...geo,
           });
         }
         toast.success("Branch created");
       }
       setOpen(false); setEditing(null); setF(blank()); load();
     } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return toast.error("Geolocation not supported by this browser");
+    toast.info("Capturing your current position…");
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setF(prev => ({ ...prev, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
+        toast.success(`Captured: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)} (±${Math.round(pos.coords.accuracy)} m)`);
+      },
+      err => toast.error(`Couldn't get position: ${err.message}`),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const del = async (id) => {
@@ -82,6 +105,9 @@ export default function Branches() {
       state_code: b.state_code || "", address: b.address || "",
       pincode: b.pincode || "", phone: b.phone || "",
       is_head_office: !!b.is_head_office,
+      latitude: b.latitude != null ? String(b.latitude) : "",
+      longitude: b.longitude != null ? String(b.longitude) : "",
+      radius_meters: b.radius_meters || 500,
     });
     setOpen(true);
   };
@@ -136,6 +162,24 @@ export default function Branches() {
                 <div><Label>Phone</Label>
                   <Input className="mt-1" value={f.phone} onChange={e=>setF({...f,phone:e.target.value})}/>
                 </div>
+                <div className="border-t border-zinc-100 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs uppercase tracking-wide text-zinc-500 font-semibold">Geofence (for attendance + live tracking)</Label>
+                    <Button size="sm" variant="outline" type="button" onClick={useMyLocation} className="h-7 gap-1 text-xs" data-testid="branch-use-location"><MapPin size={11}/>Use my location</Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div><Label className="text-[11px]">Latitude</Label>
+                      <Input className="mt-1" value={f.latitude} onChange={e=>setF({...f,latitude:e.target.value})} placeholder="12.971599" data-testid="branch-lat"/>
+                    </div>
+                    <div><Label className="text-[11px]">Longitude</Label>
+                      <Input className="mt-1" value={f.longitude} onChange={e=>setF({...f,longitude:e.target.value})} placeholder="77.594566" data-testid="branch-lon"/>
+                    </div>
+                    <div><Label className="text-[11px]">Radius (m)</Label>
+                      <Input type="number" min="50" max="50000" className="mt-1" value={f.radius_meters} onChange={e=>setF({...f,radius_meters:e.target.value})} data-testid="branch-radius"/>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1.5">Employees within this radius pass geofence checks. WFH staff are auto-exempted.</p>
+                </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={f.is_head_office} onChange={e=>setF({...f,is_head_office:e.target.checked})} data-testid="branch-hq"/>
                   Mark as head office (HQ) — only one allowed per company
@@ -163,6 +207,13 @@ export default function Branches() {
                   </div>
                   <div className="flex items-center gap-1 text-xs text-zinc-500"><MapPin size={11}/> {b.city}{b.state_name?`, ${b.state_name}`:""}{b.pincode?` · ${b.pincode}`:""}</div>
                   {b.state_code && <Badge variant="outline" className="text-[10px] mt-2 font-mono-alt">{b.state_code}</Badge>}
+                  {b.latitude != null && b.longitude != null ? (
+                    <Badge variant="outline" className="text-[10px] mt-2 ml-1 bg-emerald-50 border-emerald-200 text-emerald-700">
+                      <MapPin size={9} className="inline mr-0.5"/>{b.latitude.toFixed(3)}, {b.longitude.toFixed(3)} · {b.radius_meters || 500}m
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] mt-2 ml-1 bg-amber-50 border-amber-200 text-amber-700">No geofence — edit to add</Badge>
+                  )}
                   {b.phone && <div className="text-xs text-zinc-500 mt-1">📞 {b.phone}</div>}
                   {b.address && <div className="text-xs text-zinc-500 mt-1 line-clamp-2">{b.address}</div>}
                 </div>

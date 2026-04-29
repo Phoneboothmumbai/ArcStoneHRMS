@@ -104,7 +104,8 @@ async def live_snapshot(user=Depends(get_current_user)):
         {"company_id": cid, "on_date": today,
          "employee_id": {"$in": [e["id"] for e in emps]}},
         {"_id": 0, "employee_id": 1, "check_in": 1, "check_out": 1,
-         "last_lat": 1, "last_lon": 1, "last_seen_at": 1}
+         "last_lat": 1, "last_lon": 1, "last_seen_at": 1,
+         "check_in_lat": 1, "check_in_lon": 1}
     ).to_list(2000)
     att_by_eid = {a["employee_id"]: a for a in att}
 
@@ -137,9 +138,9 @@ async def live_snapshot(user=Depends(get_current_user)):
         if a:
             row["checked_in_at"] = a.get("check_in")
             row["checked_out_at"] = a.get("check_out")
-            row["last_lat"] = a.get("last_lat")
-            row["last_lon"] = a.get("last_lon")
-            row["last_seen_at"] = a.get("last_seen_at")
+            row["last_lat"] = a.get("last_lat") or a.get("check_in_lat")
+            row["last_lon"] = a.get("last_lon") or a.get("check_in_lon")
+            row["last_seen_at"] = a.get("last_seen_at") or a.get("check_in")
             if a.get("check_in") and not a.get("check_out"):
                 row["status"] = "on_duty"
             elif a.get("check_out"):

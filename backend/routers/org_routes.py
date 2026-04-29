@@ -302,10 +302,25 @@ async def update_branch(branch_id: str, body: dict, user=Depends(require_roles(*
     db = get_db()
     cid = user.get("company_id")
     allowed = {"name", "city", "address", "state_code", "state_name", "pincode",
-               "phone", "is_head_office", "manager_user_id"}
+               "phone", "is_head_office", "manager_user_id",
+               "latitude", "longitude", "radius_meters"}
     patch = {k: v for k, v in body.items() if k in allowed}
     if not patch:
         raise HTTPException(400, "Nothing to update")
+    # Coerce types — frontend may send lat/lon as strings
+    for k in ("latitude", "longitude"):
+        if k in patch and patch[k] is not None and patch[k] != "":
+            try:
+                patch[k] = float(patch[k])
+            except (TypeError, ValueError):
+                raise HTTPException(400, f"{k} must be a number")
+        elif k in patch and patch[k] in ("", None):
+            patch[k] = None
+    if "radius_meters" in patch and patch["radius_meters"] is not None:
+        try:
+            patch["radius_meters"] = max(50, min(50000, int(patch["radius_meters"])))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "radius_meters must be an integer")
     patch["updated_at"] = now_iso()
     if patch.get("is_head_office"):
         # Only one head office per company
