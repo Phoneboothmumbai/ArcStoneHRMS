@@ -13,6 +13,19 @@
 
 ## What's been implemented
 
+### Apr 29, 2026 — Check-in resilience + Branches geocoding + Live tracking lat/lon 🛠️
+- **Mobile check-in/out** (`/app/mobile/src/screens/AttendanceScreen.js`):
+  - `startLocationTracking()` failure no longer surfaces a fake "Check-in failed" alert. Tracking errors are now logged and the user is offered to open Settings to grant `Allow all the time`.
+  - Cancelling the camera now aborts check-in/check-out cleanly instead of silently submitting without a selfie.
+  - `refresh()` runs immediately after a successful POST so the UI flips to "Checked in" before tracking starts.
+- **Branches** (`/app/frontend/src/pages/Branches.jsx`): added explicit `Auto-detect from address` button that calls free OpenStreetMap Nominatim API + existing `Use my location` button (browser Geolocation).
+- **Live Tracking** (`/app/frontend/src/pages/LiveTracking.jsx`):
+  - Marker popup now shows the raw lat/lon (6 decimal places, selectable for copy).
+  - Right-side detail drawer shows a dedicated `Coordinates` block + deep-link to OpenStreetMap.
+  - New `View today's trail` toggle button — trail polyline only renders on demand (cleaner default map).
+- **EAS Android build kicked off**: `323f008e-f10c-4d3a-8846-491cc154c9ba` (commit `94d2891`, runtime 1.0.2). Once it finishes, run `EXPO_TOKEN=... PROD_PASS=... /app/scripts/release-apk.sh --reuse 323f008e-f10c-4d3a-8846-491cc154c9ba` to publish to landing page.
+- **Frontend pushed to Hetzner prod** (`yarn build` rerun on `138.199.146.191:/opt/arcstone/frontend`).
+
 ### Apr 26, 2026 (Evening) — Mobile feature parity + OTA pipeline 📱
 - **APK v1.0.1**: https://expo.dev/artifacts/eas/mHYjVg76XK7jX63VR8rtG2.apk (build `a7d2fae1-ed8b-4e87-8e7d-2807cad13c15`, 70.7 MB).
 - **Full employee parity**: Home / Attendance / Leave / Inbox / More — covers Payslips, Expenses (with native receipt camera), Policies, Goals, Reviews, Helpdesk, POSH, Loans, Insurance, Product/Service requests, My Submissions, Knowledge Base, Notifications, Profile.
