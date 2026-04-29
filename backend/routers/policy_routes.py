@@ -172,6 +172,7 @@ async def get_settings(user=Depends(get_current_user)):
             "legal_entity_name": doc.get("legal_entity_name"),
             "logo_base64": doc.get("logo_base64"),
             "logo_mime_type": doc.get("logo_mime_type"),
+            "location_retention_days": doc.get("location_retention_days") or 60,
         }
     return doc
 
@@ -200,6 +201,11 @@ async def update_settings(body: CompanySettingsUpdate, user=Depends(require_role
                 raise HTTPException(400, "Invalid logo data URI")
         if len(raw) > 700_000:
             raise HTTPException(400, "Logo must be smaller than ~500 KB. Try a smaller PNG/JPEG.")
+    if "location_retention_days" in upd and upd["location_retention_days"] is not None:
+        n = int(upd["location_retention_days"])
+        if n < 1 or n > 365:
+            raise HTTPException(400, "Location retention must be between 1 and 365 days.")
+        upd["location_retention_days"] = n
     upd["updated_at"] = now_iso()
     await db.company_settings.update_one({"company_id": cid}, {"$set": upd})
     return await db.company_settings.find_one({"company_id": cid}, {"_id": 0})

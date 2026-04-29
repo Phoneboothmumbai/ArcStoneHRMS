@@ -64,7 +64,15 @@ export default function LiveTracking() {
   const [refreshing, setRefreshing] = useState(false);
   const [showViewerModal, setShowViewerModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(60);
   const mapRef = useRef(null);
+
+  // Pull retention from company settings to keep the privacy footer honest
+  useEffect(() => {
+    api.get("/company-settings")
+      .then(r => setRetentionDays(r.data?.location_retention_days || 60))
+      .catch(() => {});
+  }, []);
 
   const load = async () => {
     setRefreshing(true);
@@ -165,7 +173,7 @@ export default function LiveTracking() {
           </div>
 
           <p className="text-[10px] text-zinc-400 leading-snug">
-            🔒 Privacy: You only see employees flagged as "field tracked" AND (you're HR / their direct manager / explicitly listed as a viewer). Pings only exist during active work hours. Auto-purges after 90 days.
+            🔒 Privacy: You only see employees flagged as "field tracked" AND (you're HR / their direct manager / explicitly listed as a viewer). Pings only exist during active work hours. Auto-purges after {retentionDays} days.
           </p>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setShowFlagModal(true)} className="gap-1.5" data-testid="lt-manage-tracked">
@@ -262,7 +270,11 @@ export default function LiveTracking() {
         <FlagEmployeesModal onClose={() => setShowFlagModal(false)} onChanged={load}/>
       )}
 
-      <style>{`@keyframes pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.4);opacity:0} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.4);opacity:0} }
+        .leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: 400 !important; }
+        .leaflet-control-zoom { z-index: 400 !important; }
+      `}</style>
     </AppShell>
   );
 }
@@ -317,7 +329,7 @@ function FlagEmployeesModal({ onClose, onChanged }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg w-full max-w-lg p-5 space-y-3 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()} data-testid="lt-flag-modal">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Flag employees for field tracking</h3>
@@ -391,7 +403,7 @@ function ViewersModal({ eid, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()} data-testid="lt-viewers-modal">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Who can view {empName}'s location?</h3>

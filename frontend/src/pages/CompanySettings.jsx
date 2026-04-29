@@ -207,6 +207,18 @@ export default function CompanySettings() {
           </div>
         </SectionCard>
 
+        {/* ─── Privacy & retention ───────────────────────────────────────── */}
+        <SectionCard title="Privacy & data retention" subtitle="How long sensitive operational data is kept before automatic purge." testid="section-retention">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Live-tracking ping retention (days)">
+              <Input type="number" min="1" max="365" value={s.location_retention_days ?? 60}
+                onChange={(e) => update("location_retention_days", parseInt(e.target.value, 10) || 60)}
+                data-testid="loc-retention-input"/>
+              <p className="text-xs text-zinc-500 mt-1">GPS pings older than this are auto-purged daily. 1–365 days.</p>
+            </Field>
+          </div>
+        </SectionCard>
+
         {/* ─── Save bar ──────────────────────────────────────────────────── */}
         <div className="sticky bottom-0 -mx-3 sm:-mx-5 lg:-mx-8 px-3 sm:px-5 lg:px-8 py-3 bg-white border-t border-zinc-200 flex items-center justify-between gap-3" data-testid="save-bar">
           <div className="text-xs text-zinc-500">

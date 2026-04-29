@@ -68,6 +68,7 @@ class CompanySettings(BaseDoc):
     registered_address: Optional[str] = None
     logo_base64: Optional[str] = None
     logo_mime_type: Optional[str] = None   # e.g. "image/png", "image/jpeg"
+    location_retention_days: int = 60      # how long location pings are kept (1-365)
     # Misc
     currency: str = "INR"
     timezone: str = "Asia/Kolkata"
@@ -90,6 +91,7 @@ class CompanySettingsUpdate(BaseModel):
     registered_address: Optional[str] = None
     logo_base64: Optional[str] = None
     logo_mime_type: Optional[str] = None
+    location_retention_days: Optional[int] = None
     currency: Optional[str] = None
     timezone: Optional[str] = None
     notes: Optional[str] = None

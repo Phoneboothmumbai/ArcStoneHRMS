@@ -100,8 +100,19 @@ async def lifespan(app: FastAPI):
     init_db()
     await ensure_indexes()
     await seed_demo_data()
+    # Background cleanup: purges location_pings beyond retention (default 60d)
+    from cleanup_tasks import cleanup_loop
+    import asyncio as _asyncio
+    cleanup_task = _asyncio.create_task(cleanup_loop())
     log.info("HRMS backend ready")
-    yield
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except _asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="HRMS SaaS API", lifespan=lifespan)
