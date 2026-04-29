@@ -84,7 +84,13 @@ export default function AttendanceScreen() {
           );
         }
       }
-      Alert.alert("Checked in ✓", `Site: ${r.data.site}\nDistance: ${r.data.distance_m} m`);
+      const isWfh = r.data?.site === "Work from home";
+      Alert.alert(
+        "Checked in ✓",
+        isWfh
+          ? "Marked present from home. Have a great day!"
+          : `Site: ${r.data.site}\nDistance: ${r.data.distance_m} m`,
+      );
       refresh();
     } catch (e) { Alert.alert("Check-in failed", formatError(e)); }
     finally { setWorking(false); }

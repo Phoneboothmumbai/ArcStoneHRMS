@@ -159,6 +159,7 @@ async def me_bootstrap(user=Depends(get_current_user)):
             for s in work_sites
         ],
         "tracking_required": emp.get("employee_type") in ("field", "wfo"),
+        "geofence_required": (emp.get("employee_type") or "").lower() not in ("wfh", "remote", "work_from_home"),
     }
 
 
@@ -170,7 +171,16 @@ async def mobile_checkin(body: CheckInBody, user=Depends(get_current_user)):
     db = get_db()
     cid = user.get("company_id")
     emp = await _get_emp(db, user)
-    site = await _check_geofence(db, cid, body.latitude, body.longitude, body.site_id)
+
+    # Geofence enforcement is only relevant to office-based / field staff. WFH
+    # employees by definition don't work from a fenced site — so we skip the
+    # geofence check for them but still capture their location for the audit
+    # trail and live tracking (if they're field-tracked).
+    is_wfh = (emp.get("employee_type") or "").lower() in ("wfh", "remote", "work_from_home")
+    if is_wfh:
+        site = {"id": None, "name": "Work from home", "distance_m": 0}
+    else:
+        site = await _check_geofence(db, cid, body.latitude, body.longitude, body.site_id)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     existing = await db.attendance.find_one(
