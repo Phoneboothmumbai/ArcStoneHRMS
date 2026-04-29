@@ -221,6 +221,12 @@ export default function LiveTracking() {
               <Polyline positions={trail.pings.map(p => [p.latitude, p.longitude])}
                 pathOptions={{ color: "#3b82f6", weight: 4, opacity: 0.75 }}/>
             )}
+            {/* Always show the trail's start (check-in) point as a small green marker
+                so a single-ping trail is still visible on the map. */}
+            {showTrail && trail?.pings?.length > 0 && (
+              <Circle center={[trail.pings[0].latitude, trail.pings[0].longitude]}
+                radius={20} pathOptions={{ color: "#10b981", weight: 2, fillOpacity: 0.7 }}/>
+            )}
             {showTrail && trail?.pings?.length > 0 && (
               <FitBounds points={trail.pings.map(p => [p.latitude, p.longitude])}/>
             )}
@@ -261,6 +267,13 @@ export default function LiveTracking() {
                 <div className="font-mono text-xs text-zinc-800 select-all" data-testid="lt-coords">
                   {selRow.last_lat.toFixed(6)}, {selRow.last_lon.toFixed(6)}
                 </div>
+                {(() => {
+                  const ageMin = selRow.last_seen_at ? (Date.now() - new Date(selRow.last_seen_at).getTime()) / 60000 : null;
+                  if (selRow.status === "on_duty" && ageMin != null && ageMin > 5) {
+                    return <div className="text-[10px] text-amber-700 mt-1">⚠ Last update was {Math.round(ageMin)} min ago — phone may be offline or background tracking disabled.</div>;
+                  }
+                  return null;
+                })()}
                 <a href={`https://www.openstreetmap.org/?mlat=${selRow.last_lat}&mlon=${selRow.last_lon}#map=18/${selRow.last_lat}/${selRow.last_lon}`}
                    target="_blank" rel="noreferrer"
                    className="text-[11px] text-blue-600 hover:underline mt-1 inline-block">
@@ -279,8 +292,11 @@ export default function LiveTracking() {
                 className="w-full mt-2 gap-1.5"
                 onClick={() => {
                   if (!trail?.pings?.length) {
-                    toast.info("No location data for this date.");
+                    toast.info("No location pings recorded for this date.");
                     return;
+                  }
+                  if (trail.pings.length === 1) {
+                    toast.info("Only the check-in ping was captured today — a route line needs 2+ pings.");
                   }
                   setShowTrail(s => !s);
                 }}
