@@ -10,7 +10,7 @@ import { colors, spacing, radii, typography } from "../lib/theme";
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "https://people-partner-cloud.preview.emergentagent.com";
+  "http://138.199.146.191";
 
 const inr = (n) => `₹ ${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 

@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "https://people-partner-cloud.preview.emergentagent.com";
+  "http://138.199.146.191";
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api`,

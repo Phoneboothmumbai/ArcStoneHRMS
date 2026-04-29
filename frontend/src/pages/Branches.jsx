@@ -90,6 +90,26 @@ export default function Branches() {
     );
   };
 
+  // Geocode the branch's address using OpenStreetMap's Nominatim — free, no API key.
+  // Polite usage: < 1 req/s, descriptive User-Agent, results cached client-side.
+  const geocodeFromAddress = async () => {
+    const parts = [f.address, f.city, IN_STATES.find(s => s[0] === f.state_code)?.[1], f.pincode, "India"]
+      .filter(Boolean).join(", ");
+    if (!parts || parts.length < 5) return toast.error("Add address / city first, then try again.");
+    toast.info("Geocoding via OpenStreetMap…");
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=${encodeURIComponent(parts)}`,
+        { headers: { "Accept-Language": "en" } });
+      const data = await r.json();
+      if (!data?.length) return toast.error("Couldn't find that address. Try adding the city/pincode.");
+      const hit = data[0];
+      setF(prev => ({ ...prev, latitude: parseFloat(hit.lat).toFixed(6), longitude: parseFloat(hit.lon).toFixed(6) }));
+      toast.success(`Found: ${hit.display_name.slice(0, 70)}…`);
+    } catch (e) {
+      toast.error("Geocoding failed — check internet, then enter manually.");
+    }
+  };
+
   const del = async (id) => {
     if (!window.confirm("Delete this branch? Will fail if employees are assigned.")) return;
     try {

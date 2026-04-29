@@ -8,7 +8,7 @@ import { colors } from "../lib/theme";
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "https://people-partner-cloud.preview.emergentagent.com";
+  "http://138.199.146.191";
 
 /**
  * Reusable WebView wrapper. Loads any web app route inside the native shell,
