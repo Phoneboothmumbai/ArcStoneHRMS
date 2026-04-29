@@ -1,0 +1,18 @@
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
+
+
+
+The build profile "preview" has specified the channel "preview", but the "expo-updates" package hasn't been installed. To use channels for your builds, install the "expo-updates" package by running "npx expo install expo-updates" followed by "eas update:configure".
+✔ Using remote Android credentials (Expo server)
+Detected that you do not have keytool installed locally.
+- Generating keystore in the cloud...
+✔ Generating keystore in the cloud...
+✔ Created keystore
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+- Uploading to EAS Build (0 / 1.4 MB)
+✔ Uploaded to EAS 
+
+See logs: https://expo.dev/accounts/phonebooth/projects/arcstone-hrms/builds/4b092079-b3d7-4bb0-9ce8-bb9cca58beb0
+

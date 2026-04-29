@@ -185,7 +185,10 @@ export default function Branches() {
                 <div className="border-t border-zinc-100 pt-3">
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-xs uppercase tracking-wide text-zinc-500 font-semibold">Geofence (for attendance + live tracking)</Label>
-                    <Button size="sm" variant="outline" type="button" onClick={useMyLocation} className="h-7 gap-1 text-xs" data-testid="branch-use-location"><MapPin size={11}/>Use my location</Button>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="outline" type="button" onClick={geocodeFromAddress} className="h-7 gap-1 text-xs" data-testid="branch-geocode"><MapPin size={11}/>Auto-detect from address</Button>
+                      <Button size="sm" variant="outline" type="button" onClick={useMyLocation} className="h-7 gap-1 text-xs" data-testid="branch-use-location"><MapPin size={11}/>Use my location</Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div><Label className="text-[11px]">Latitude</Label>

@@ -1,0 +1,15 @@
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
+
+
+
+✔ Created update channel "preview" and branch "preview" on @phonebooth/arcstone-hrms project. Learn more: https://docs.expo.dev/eas-update/eas-cli/
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials 3l5QCXGcEr (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+- Uploading to EAS Build (0 / 1.4 MB)
+✔ Uploaded to EAS 
+
+See logs: https://expo.dev/accounts/phonebooth/projects/arcstone-hrms/builds/a7d2fae1-ed8b-4e87-8e7d-2807cad13c15
+

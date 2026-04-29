@@ -59,6 +59,7 @@ export default function LiveTracking() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);       // employee_id
   const [trail, setTrail] = useState(null);             // { pings: [...] }
+  const [showTrail, setShowTrail] = useState(false);    // toggle on the map
   const [trailDate, setTrailDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [breaches, setBreaches] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,7 +96,7 @@ export default function LiveTracking() {
 
   // Load trail whenever a selection or date changes
   useEffect(() => {
-    if (!selected) { setTrail(null); return; }
+    if (!selected) { setTrail(null); setShowTrail(false); return; }
     api.get(`/admin/locations/trail/${selected}`, { params: { date: trailDate } })
        .then(r => setTrail(r.data))
        .catch(() => setTrail({ pings: [] }));
@@ -201,6 +202,9 @@ export default function LiveTracking() {
                       <div className="text-xs text-zinc-600 mb-1">{r.designation}</div>
                       <div className="text-xs">Last seen: <b>{fmtDate(r.last_seen_at)}</b></div>
                       <div className="text-xs">From office: <b>{fmtDist(r.distance_m)}</b></div>
+                      <div className="text-[11px] font-mono text-zinc-700 mt-1 select-all">
+                        {r.last_lat.toFixed(6)}, {r.last_lon.toFixed(6)}
+                      </div>
                       {isBreach && <div className="text-xs text-red-600 font-semibold mt-1">⚠️ Geofence breach</div>}
                     </div>
                   </Popup>
@@ -212,12 +216,15 @@ export default function LiveTracking() {
               <Circle key={`fence-${r.employee_id}-${r.branch_id}`} center={[r.branch_lat, r.branch_lon]}
                 radius={500} pathOptions={{ color: "#94a3b8", weight: 1, fillOpacity: 0.05 }}/>
             ))}
-            {/* Selected employee's trail */}
-            {trail?.pings?.length > 1 && (
+            {/* Selected employee's trail (toggle via "View today's trail") */}
+            {showTrail && trail?.pings?.length > 1 && (
               <Polyline positions={trail.pings.map(p => [p.latitude, p.longitude])}
                 pathOptions={{ color: "#3b82f6", weight: 4, opacity: 0.75 }}/>
             )}
-            <FitBounds points={markers}/>
+            {showTrail && trail?.pings?.length > 0 && (
+              <FitBounds points={trail.pings.map(p => [p.latitude, p.longitude])}/>
+            )}
+            {!showTrail && <FitBounds points={markers}/>}
           </MapContainer>
           {refreshing && (
             <div className="absolute top-2 right-2 bg-white/90 px-2.5 py-1 rounded-full text-[10px] font-semibold text-zinc-600 border border-zinc-200 z-[500]">
@@ -248,10 +255,39 @@ export default function LiveTracking() {
               <Row icon={Path}   label="From home branch" value={fmtDist(selRow.distance_m) + (selRow.branch_name ? ` · ${selRow.branch_name}` : "")}/>
             </dl>
 
+            {selRow.last_lat != null && selRow.last_lon != null && (
+              <div className="mt-3 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md">
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500 mb-1">Coordinates</div>
+                <div className="font-mono text-xs text-zinc-800 select-all" data-testid="lt-coords">
+                  {selRow.last_lat.toFixed(6)}, {selRow.last_lon.toFixed(6)}
+                </div>
+                <a href={`https://www.openstreetmap.org/?mlat=${selRow.last_lat}&mlon=${selRow.last_lon}#map=18/${selRow.last_lat}/${selRow.last_lon}`}
+                   target="_blank" rel="noreferrer"
+                   className="text-[11px] text-blue-600 hover:underline mt-1 inline-block">
+                  Open in OpenStreetMap ↗
+                </a>
+              </div>
+            )}
+
             <div className="mt-4">
               <label className="tiny-label mb-1 block">View trail for</label>
-              <Input type="date" value={trailDate} onChange={(e) => setTrailDate(e.target.value)} data-testid="lt-trail-date"/>
+              <Input type="date" value={trailDate} onChange={(e) => { setTrailDate(e.target.value); setShowTrail(false); }} data-testid="lt-trail-date"/>
               <p className="text-[10px] text-zinc-500 mt-1">{trail?.count ?? 0} ping{(trail?.count ?? 0) === 1 ? "" : "s"} on this day.</p>
+              <Button
+                size="sm"
+                variant={showTrail ? "default" : "outline"}
+                className="w-full mt-2 gap-1.5"
+                onClick={() => {
+                  if (!trail?.pings?.length) {
+                    toast.info("No location data for this date.");
+                    return;
+                  }
+                  setShowTrail(s => !s);
+                }}
+                data-testid="lt-view-trail"
+              >
+                <Path size={14}/>{showTrail ? "Hide trail" : "View today's trail"}
+              </Button>
             </div>
 
             {isAdmin && (

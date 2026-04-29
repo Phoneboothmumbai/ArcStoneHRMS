@@ -33,19 +33,25 @@ export default function AttendanceScreen() {
   const today = boot?.today || {};
   const checkedIn = !!today.checked_in_at && !today.checked_out_at;
 
+  // Returns:
+  //   { ok: true, base64 }     - selfie captured
+  //   { ok: false, cancelled } - user cancelled / denied → caller must abort
   const captureSelfie = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (perm.status !== "granted") {
-      Alert.alert("Camera permission needed", "Please grant camera access in Settings.");
-      return null;
+      Alert.alert("Camera permission needed", "Please grant camera access in Settings to take your check-in selfie.",
+        [{ text: "Open Settings", onPress: () => Linking.openSettings() }, { text: "Cancel" }]);
+      return { ok: false, cancelled: true };
     }
     const r = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true, aspect: [1, 1], quality: 0.5,
       base64: true, cameraType: ImagePicker.CameraType.front,
     });
-    if (r.canceled) return null;
-    return r.assets[0]?.base64 || null;
+    if (r.canceled) return { ok: false, cancelled: true };
+    const b64 = r.assets?.[0]?.base64;
+    if (!b64) return { ok: false, cancelled: true };
+    return { ok: true, base64: b64 };
   };
 
   const getCurrentLocation = async () => {
@@ -66,24 +72,17 @@ export default function AttendanceScreen() {
       if (!coords) return;
       setLastLoc(coords);
       const selfie = await captureSelfie();
-      // Upload
+      if (!selfie.ok) {
+        // User cancelled or denied the camera — abort silently, no check-in.
+        return;
+      }
+      // Upload check-in
       const r = await api.post("/mobile/checkin", {
         latitude: coords.latitude, longitude: coords.longitude,
-        accuracy: coords.accuracy, selfie_b64: selfie,
+        accuracy: coords.accuracy, selfie_b64: selfie.base64,
       });
-      // Trigger background tracking
-      const perms = await requestPermissions();
-      if (perms.ok) {
-        await startLocationTracking();
-        setTrackingState(true);
-        if (!perms.background) {
-          Alert.alert(
-            "Foreground tracking only",
-            "We could only get foreground permission. Open Settings → Permissions → Location → Always allow for full tracking while you're checked in.",
-            [{ text: "Settings", onPress: () => Linking.openSettings() }, { text: "OK" }],
-          );
-        }
-      }
+      // Refresh state immediately so UI reflects success even if tracking fails
+      refresh();
       const isWfh = r.data?.site === "Work from home";
       Alert.alert(
         "Checked in ✓",
@@ -91,7 +90,23 @@ export default function AttendanceScreen() {
           ? "Marked present from home. Have a great day!"
           : `Site: ${r.data.site}\nDistance: ${r.data.distance_m} m`,
       );
-      refresh();
+      // Trigger background tracking — failure here MUST NOT report check-in failed.
+      try {
+        const perms = await requestPermissions();
+        if (perms.ok && perms.background) {
+          await startLocationTracking();
+          setTrackingState(true);
+        } else if (perms.ok && !perms.background) {
+          Alert.alert(
+            "Foreground tracking only",
+            "Background location permission was not granted. Open Settings → Permissions → Location → Allow all the time so we can track your work location while the app is in the background.",
+            [{ text: "Open Settings", onPress: () => Linking.openSettings() }, { text: "Skip" }],
+          );
+        }
+      } catch (trackErr) {
+        // Don't surface this as a check-in failure — log silently and let user retry tracking from settings.
+        console.warn("Tracking start failed:", trackErr?.message);
+      }
     } catch (e) { Alert.alert("Check-in failed", formatError(e)); }
     finally { setWorking(false); }
   };
@@ -103,12 +118,18 @@ export default function AttendanceScreen() {
       if (!coords) return;
       setLastLoc(coords);
       const selfie = await captureSelfie();
+      if (!selfie.ok) return;   // user cancelled — don't checkout
       const r = await api.post("/mobile/checkout", {
         latitude: coords.latitude, longitude: coords.longitude,
-        accuracy: coords.accuracy, selfie_b64: selfie,
+        accuracy: coords.accuracy, selfie_b64: selfie.base64,
       });
-      await stopLocationTracking();
-      setTrackingState(false);
+      // Stop tracking, but failure here shouldn't surface as a check-out error.
+      try {
+        await stopLocationTracking();
+        setTrackingState(false);
+      } catch (trackErr) {
+        console.warn("Tracking stop failed:", trackErr?.message);
+      }
       Alert.alert("Checked out ✓", `Hours worked: ${r.data.hours || "—"}`);
       refresh();
     } catch (e) { Alert.alert("Check-out failed", formatError(e)); }
