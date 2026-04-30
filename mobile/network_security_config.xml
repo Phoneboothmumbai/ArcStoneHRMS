@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allow cleartext HTTP traffic ONLY to the production server IP.
+  All other domains stay HTTPS-only (Android default).
+  This file is referenced from app.json via expo-build-properties.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">138.199.146.191</domain>
+    </domain-config>
+</network-security-config>

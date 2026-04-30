@@ -38,7 +38,7 @@
         "backgroundColor": "#09090b"
       },
       "package": "io.arcstone.hrms",
-      "versionCode": 3,
+      "versionCode": 4,
       "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
@@ -72,6 +72,14 @@
       "fallbackToCacheTimeout": 0
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       [
         "expo-location",
         {
