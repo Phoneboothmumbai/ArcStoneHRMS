@@ -60,7 +60,9 @@ import VisitorManagement from "./pages/VisitorManagement";
 import LiveTracking from "./pages/LiveTracking";
 import OrgChart from "./pages/OrgChart";
 import Branches from "./pages/Branches";
+import EmploymentClasses from "./pages/EmploymentClasses";
 import { ModulesProvider } from "./context/ModulesContext";
+import { EmploymentClassProvider } from "./context/EmploymentClassContext";
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -76,6 +78,7 @@ function App() {
   return (
     <AuthProvider>
       <ModulesProvider>
+      <EmploymentClassProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -162,10 +165,12 @@ function App() {
           <Route path="/app/live-tracking" element={<ProtectedRoute><LiveTracking /></ProtectedRoute>} />
           <Route path="/app/org-chart" element={<ProtectedRoute><OrgChart /></ProtectedRoute>} />
           <Route path="/app/branches" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Branches /></ProtectedRoute>} />
+          <Route path="/app/employment-classes" element={<ProtectedRoute roles={["super_admin","company_admin"]}><EmploymentClasses /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </EmploymentClassProvider>
       </ModulesProvider>
     </AuthProvider>
   );

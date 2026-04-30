@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { MagnifyingGlass, GridFour, ListBullets, EnvelopeSimple, Phone, Buildings, Stack, UserCircle, Printer } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
+const EMP_CLASS_LABELS = {
+  on_roll:              { label: "On-Roll",    cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+  off_roll_consultant:  { label: "Consultant", cls: "bg-amber-50 border-amber-200 text-amber-700" },
+  off_roll_contractor:  { label: "Contractor", cls: "bg-sky-50 border-sky-200 text-sky-700" },
+  intern:               { label: "Intern",     cls: "bg-violet-50 border-violet-200 text-violet-700" },
+};
+
 export default function Employees() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,6 +23,12 @@ export default function Employees() {
   const [type, setType] = useState("all");
   const [deptId, setDeptId] = useState("all");
   const [branchId, setBranchId] = useState("all");
+  const [employmentClass, setEmploymentClass] = useState(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get("employment_class") || "all";
+    } catch { return "all"; }
+  });
   const [view, setView] = useState("table"); // table | cards
   const [departments, setDepartments] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -28,6 +41,7 @@ export default function Employees() {
       if (type !== "all") params.employee_type = type;
       if (deptId !== "all") params.department_id = deptId;
       if (branchId !== "all") params.branch_id = branchId;
+      if (employmentClass !== "all") params.employment_class = employmentClass;
       const [emps, ds, bs] = await Promise.all([
         api.get("/employees", { params }),
         api.get("/org/departments"),
@@ -37,7 +51,7 @@ export default function Employees() {
     } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, type, deptId, branchId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, type, deptId, branchId, employmentClass]);
 
   const stats = useMemo(() => {
     const m = { wfo: 0, wfh: 0, field: 0, hybrid: 0 };
@@ -73,11 +87,23 @@ export default function Employees() {
             <Select value={type} onValueChange={setType}>
               <SelectTrigger className="w-36 h-9" data-testid="dir-type-select"><SelectValue/></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="all">All modes</SelectItem>
                 <SelectItem value="wfo">WFO</SelectItem>
                 <SelectItem value="wfh">WFH</SelectItem>
                 <SelectItem value="field">Field</SelectItem>
                 <SelectItem value="hybrid">Hybrid</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={employmentClass} onValueChange={setEmploymentClass}>
+              <SelectTrigger className="w-40 h-9" data-testid="dir-employment-class-select">
+                <SelectValue placeholder="Employment"/>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All classes</SelectItem>
+                <SelectItem value="on_roll">On-Roll</SelectItem>
+                <SelectItem value="off_roll_consultant">Consultant</SelectItem>
+                <SelectItem value="off_roll_contractor">Contractor</SelectItem>
+                <SelectItem value="intern">Intern</SelectItem>
               </SelectContent>
             </Select>
             <div className="border border-zinc-200 rounded-md flex">
@@ -117,12 +143,14 @@ function TableView({ rows }) {
       <thead className="border-b border-zinc-200">
         <tr className="text-left text-xs uppercase text-zinc-500">
           <th className="py-2 px-2">Employee</th><th>Job</th><th>Department</th><th>Branch</th>
-          <th>Type</th><th>Manager</th><th>Status</th>
+          <th>Mode</th><th>Class</th><th>Manager</th><th>Status</th>
         </tr>
       </thead>
       <tbody>
-        {rows.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-zinc-500">No employees match.</td></tr>}
-        {rows.map(e => (
+        {rows.length === 0 && <tr><td colSpan={8} className="text-center py-12 text-zinc-500">No employees match.</td></tr>}
+        {rows.map(e => {
+          const ec = EMP_CLASS_LABELS[e.employment_class] || EMP_CLASS_LABELS.on_roll;
+          return (
           <tr key={e.id} className="border-b border-zinc-100 hover:bg-zinc-50" data-testid={`emp-row-${e.id}`}>
             <td className="py-2 px-2">
               <Link to={`/app/employees/${e.id}`} className="flex items-center gap-2.5 group" data-testid={`emp-profile-link-${e.id}`}>
@@ -137,12 +165,14 @@ function TableView({ rows }) {
             <td className="text-zinc-700 text-xs">{e.department_name || "—"}</td>
             <td className="text-zinc-700 text-xs">{e.branch_name || "—"}</td>
             <td><Badge variant="outline" className="uppercase text-[10px]">{e.employee_type}</Badge></td>
+            <td><Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${ec.cls}`} data-testid={`emp-class-${e.id}`}>{ec.label}</Badge></td>
             <td className="text-xs text-zinc-500">{e.manager_id ? <ManagerCell id={e.manager_id}/> : "—"}</td>
             <td>
               <span className="text-[10px] uppercase tracking-wider bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-full capitalize">{e.status}</span>
             </td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
@@ -164,7 +194,9 @@ function CardsView({ rows }) {
   if (rows.length === 0) return <p className="text-center py-12 text-zinc-500 text-sm">No employees match.</p>;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-      {rows.map(e => (
+      {rows.map(e => {
+        const ec = EMP_CLASS_LABELS[e.employment_class] || EMP_CLASS_LABELS.on_roll;
+        return (
         <Link key={e.id} to={`/app/employees/${e.id}`} className="block border border-zinc-200 rounded-lg p-4 hover:border-zinc-400 hover:shadow-sm transition-all group" data-testid={`emp-card-${e.id}`}>
           <div className="flex items-center gap-3 mb-3">
             <Avatar emp={e} large/>
@@ -181,10 +213,12 @@ function CardsView({ rows }) {
           </div>
           <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-zinc-100">
             <Badge variant="outline" className="text-[10px] uppercase">{e.employee_type}</Badge>
+            <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${ec.cls}`} data-testid={`emp-class-${e.id}`}>{ec.label}</Badge>
             <Badge variant="outline" className="text-[10px] font-mono-alt">{e.employee_code}</Badge>
           </div>
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

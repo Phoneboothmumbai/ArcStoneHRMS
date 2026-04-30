@@ -8,7 +8,7 @@ import {
   PackageIcon, Storefront, Buildings, ShieldCheck, FlowArrow, Stack, Receipt,
   UserCirclePlus, UserCircleMinus, UserCircle, CurrencyInr, Calendar, Handshake,
   BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock, Bell,
-  MapPin,
+  MapPin, IdentificationCard,
 } from "@phosphor-icons/react";
 
 // Helper role constants
@@ -50,6 +50,7 @@ export const MODULES = [
       { to: "/app/offboarding",   label: "Offboarding",   icon: UserCircleMinus, entitlement: "onboarding" },
       { to: "/app/approvals",     label: "Approvals",     icon: ShieldCheck },
       { to: "/app/workflows",     label: "Workflows",     icon: FlowArrow },
+      { to: "/app/employment-classes", label: "Employment classes", icon: IdentificationCard, roles: ["super_admin","company_admin"] },
       { to: "/app/company-settings", label: "Company settings", icon: Gear, roles: ROLE_HR },
     ],
   },

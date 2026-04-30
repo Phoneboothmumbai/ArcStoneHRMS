@@ -47,6 +47,7 @@ async def list_employees(
     branch_id: str = Query(None),
     department_id: str = Query(None),
     employee_type: str = Query(None),
+    employment_class: str = Query(None),
     q: str = Query(None),
 ):
     db = get_db()
@@ -62,6 +63,8 @@ async def list_employees(
         flt["department_id"] = department_id
     if employee_type:
         flt["employee_type"] = employee_type
+    if employment_class:
+        flt["employment_class"] = employment_class
     if q:
         flt["$or"] = [
             {"name": {"$regex": q, "$options": "i"}},
@@ -87,7 +90,9 @@ async def create_employee(body: EmployeeCreate, user=Depends(require_roles("supe
     doc = {
         "id": uid(), "company_id": cid, "user_id": None, "employee_code": code,
         "name": body.name, "email": body.email.lower(), "phone": body.phone,
-        "employee_type": body.employee_type, "region_id": body.region_id,
+        "employee_type": body.employee_type,
+        "employment_class": body.employment_class,
+        "region_id": body.region_id,
         "country_id": body.country_id, "branch_id": body.branch_id,
         "department_id": body.department_id, "job_title": body.job_title,
         "manager_id": body.manager_id, "role_in_company": body.role_in_company,
@@ -161,6 +166,7 @@ async def patch_employee(emp_id: str, body: dict,
     if not emp:
         raise HTTPException(404, "Employee not found")
     allowed = {"manager_id", "department_id", "branch_id", "job_title", "employee_type",
+               "employment_class",
                "date_of_birth", "phone", "project_ids", "department_name", "branch_name",
                "is_field_tracked", "geofence_radius_m"}
     patch = {k: v for k, v in body.items() if k in allowed}

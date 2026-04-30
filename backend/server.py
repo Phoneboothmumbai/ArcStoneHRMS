@@ -93,6 +93,7 @@ from routers.statutory_compliance import (
 )
 from routers.public_routes import router as public_router
 from routers.mobile_routes import router as mobile_router
+from routers.employment_class_routes import router as employment_class_router, admin as employment_class_admin_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -214,6 +215,8 @@ app.include_router(lwf_router)
 app.include_router(compliance_bulletin_router)
 app.include_router(public_router)
 app.include_router(mobile_router)
+app.include_router(employment_class_router)
+app.include_router(employment_class_admin_router)
 
 # SpineHR-aligned modules
 from routers.resource_booking_routes import resources_router, bookings_router as resource_bookings_router

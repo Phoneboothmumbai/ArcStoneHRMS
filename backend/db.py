@@ -44,6 +44,14 @@ async def ensure_indexes() -> None:
     await db.employees.create_index("company_id")
     await db.employees.create_index("employee_code")
     await db.employees.create_index("manager_id")
+    await db.employees.create_index([("company_id", 1), ("employment_class", 1)])
+    # Employment-class permission overrides per company
+    await db.employment_class_permissions.create_index("company_id", unique=True)
+    # Migration: any employee doc missing employment_class → on_roll
+    await db.employees.update_many(
+        {"employment_class": {"$exists": False}},
+        {"$set": {"employment_class": "on_roll"}},
+    )
     await db.approval_requests.create_index("company_id")
     await db.approval_requests.create_index("requester_user_id")
     await db.approval_requests.create_index("status")

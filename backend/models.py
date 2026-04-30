@@ -21,6 +21,8 @@ Role = Literal[
 ]
 
 EmployeeType = Literal["wfo", "wfh", "field", "hybrid"]
+# Employment classification — drives feature entitlements (payroll/PF/leaves differ for off-roll)
+EmploymentClass = Literal["on_roll", "off_roll_consultant", "off_roll_contractor", "intern"]
 ApprovalStatus = Literal["pending", "approved", "rejected", "cancelled"]
 RequestType = Literal["leave", "product_service", "expense"]
 
@@ -160,6 +162,7 @@ class Employee(BaseDoc):
     email: EmailStr
     phone: Optional[str] = None
     employee_type: EmployeeType = "wfo"
+    employment_class: EmploymentClass = "on_roll"  # on_roll | off_roll_consultant | off_roll_contractor | intern
     region_id: Optional[str] = None
     country_id: Optional[str] = None
     branch_id: Optional[str] = None
@@ -179,6 +182,7 @@ class EmployeeCreate(BaseModel):
     email: EmailStr
     phone: Optional[str] = None
     employee_type: EmployeeType = "wfo"
+    employment_class: EmploymentClass = "on_roll"
     region_id: Optional[str] = None
     country_id: Optional[str] = None
     branch_id: Optional[str] = None
