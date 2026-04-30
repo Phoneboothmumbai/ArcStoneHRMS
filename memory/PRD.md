@@ -13,6 +13,37 @@
 
 ## What's been implemented
 
+### Apr 30, 2026 — Phase 1: Employment Classes (On-Roll / Off-Roll / Intern) 🪪
+**New foundation for a 6-phase branch-operations rollout.** 12/12 backend tests + end-to-end frontend validation green.
+
+- **New `employment_class` field** on Employee / EmployeeCreate: `on_roll | off_roll_consultant | off_roll_contractor | intern` (distinct from the work-mode `employee_type`). Startup migration backfills all existing employees → `on_roll`. New index `(company_id, employment_class)`.
+- **Policy engine** (`/app/backend/employment_class_policy.py`):
+  - 19 feature keys across 8 groups (Compensation, Time Off, Time & Attendance, Operations, Docs, Growth, Engagement).
+  - Code-as-truth DEFAULTS matrix: on_roll full access; off_roll_consultant excludes payroll/PF/loans/leave/insurance but keeps timesheet+expenses+attendance; off_roll_contractor minimal (no expenses); intern gets stipend payroll without PF/loans/insurance.
+  - `get_effective_matrix(db, company_id)` overlays defaults with per-company overrides from `employment_class_permissions` collection.
+- **Endpoints** (`/app/backend/routers/employment_class_routes.py`):
+  - `GET /api/employment-class/catalog` — public metadata.
+  - `GET /api/employment-class/permissions` — each user's effective permissions (derived from their Employee record).
+  - `GET /api/admin/employment-class/config` — full per-class × per-feature matrix (company_admin+).
+  - `PUT /api/admin/employment-class/config` — save overrides.
+  - `POST /api/admin/employment-class/reset` — wipe to defaults.
+  - `GET /api/admin/employment-class/stats` — head-count per class.
+- **Employees API** (`routers/employees_routes.py`) now accepts `?employment_class=` filter and persists the field on create + patch.
+- **Frontend**:
+  - New admin page `/app/employment-classes` (`pages/EmploymentClasses.jsx`) with 3 tabs: **Classes & Permissions** (toggle matrix grouped by section), **Workforce Breakdown** (cards + percentages + deep-links), **Approval Matrix** (CTA to existing `/app/workflows`).
+  - `/app/employees` gains an **Employment** filter dropdown + **Class** column with coloured badge (On-Roll / Consultant / Contractor / Intern) in both table and card views; deep-link `?employment_class=X` auto-applies.
+  - New `EmploymentClassProvider` (`context/EmploymentClassContext.jsx`) exposes `useEmploymentClass()` + `useFeatureAllowed(key)` for future feature-gating.
+  - Sidebar item `Employment classes` added under the People module, role-gated to super_admin / company_admin.
+- **Seed script** `/app/scripts/seed_employment_classes.py` — idempotent; adds 3 consultants, 2 contractors, 3 interns.
+- **Tests**: `/app/backend/tests/test_employment_class.py` — 7 unit tests covering defaults, normalize() fallback behaviour, and the off-roll-consultant / intern contracts per user spec.
+- **Phase roadmap** agreed with user:
+  1. ✅ Foundation (On-Roll / Off-Roll + Approval Matrix UI) — **DONE**
+  2. 🔜 Budget Module (Branch × Department × Cost-Center × Category; warn 80% / block 100%)
+  3. 🔜 Branch Operations (Document Vault + Recurring Expense scheduler: auto-submit critical bills, auto-draft discretionary, manual one-click templates)
+  4. 🔜 Procurement Extensions (Stationery/Joining Kit/Repair/Branding RFQ categories + Vendor portal POD/invoice upload + auto-route to vendor category)
+  5. 🔜 Fixed Asset Management (depreciation, custodian transfer, write-off, AMC)
+  6. 🔜 SOPs + Idea Factory (medium: upvotes + stages + reward points) + Recruitment Referral (full: pipeline-tracked, bonus on hire+90d retention)
+
 ### Apr 29, 2026 — Check-in resilience + Branches geocoding + Live tracking lat/lon 🛠️
 - **Mobile check-in/out** (`/app/mobile/src/screens/AttendanceScreen.js`):
   - `startLocationTracking()` failure no longer surfaces a fake "Check-in failed" alert. Tracking errors are now logged and the user is offered to open Settings to grant `Allow all the time`.
