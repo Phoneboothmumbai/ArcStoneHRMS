@@ -52,7 +52,9 @@ from routers.fnf_routes import loans_router, fnf_router
 from routers.policy_routes import policies_router, settings_router as company_settings_router
 from routers.letters_routes import tmpl_router as letter_templates_router, letters_router
 from routers.assets_routes import assets_router, assignments_router as asset_assignments_router
-from routers.expenses_routes import expenses_router, travel_router
+from routers.expenses_routes import expenses_router, travel_router, policy_router as expense_policy_router
+from routers.comp_off_routes import router as comp_off_router
+from routers.bulk_import_routes import router as bulk_import_router
 from routers.performance_routes import (
     cycles_router as review_cycles_router,
     goals_router as performance_goals_router,
@@ -183,6 +185,9 @@ app.include_router(assets_router)
 app.include_router(asset_assignments_router)
 app.include_router(expenses_router)
 app.include_router(travel_router)
+app.include_router(expense_policy_router)
+app.include_router(comp_off_router)
+app.include_router(bulk_import_router)
 app.include_router(review_cycles_router)
 app.include_router(performance_goals_router)
 app.include_router(performance_reviews_router)

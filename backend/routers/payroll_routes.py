@@ -116,8 +116,15 @@ async def delete_structure(sid: str, user=Depends(require_roles(*ADMIN))):
 
 
 # ---------- Employee Compensation ----------
-def _compute_lines(annual: float, components: list, structure_lines: list, overrides: dict) -> list:
-    """Build per-employee salary lines from structure % / fixed amounts."""
+def _compute_lines(annual: float, components: list, structure_lines: list, overrides: dict,
+                   state_code: Optional[str] = None, month_number: Optional[int] = None) -> list:
+    """Build per-employee salary lines from structure % / fixed amounts.
+
+    `state_code` (ISO 3166-2, e.g. IN-MH) drives state-specific PT slab lookup.
+    `month_number` 1-12 is used for Maharashtra Feb ₹300 surcharge. Both are
+    optional — if omitted, PT falls back to flat ₹200.
+    """
+    from pt_slabs import compute_pt
     monthly = annual / 12.0
     comp_by_code = {c["code"]: c for c in components}
     out_lines = []
@@ -158,8 +165,10 @@ def _compute_lines(annual: float, components: list, structure_lines: list, overr
                 gross = _gross_so_far()
                 m_amt = round(gross * 0.0325, 2) if gross <= ESIC_CEILING else 0.0
             elif code == "PT":
-                # Default ₹200/month; TODO state-slab in Phase 2C
-                m_amt = 200.0
+                # State-slab lookup — MH Feb ₹300, KA ₹0 below 25k, etc.
+                # Fallback ₹200 if state unknown (preserves legacy behaviour).
+                gross = _gross_so_far()
+                m_amt = compute_pt(gross, state_code=state_code, month_number=month_number)
             elif code == "GRAT":
                 # 4.81% of basic (15 days per year / 26 working days)
                 m_amt = round(_basic() * 0.0481, 2)
@@ -226,7 +235,22 @@ async def assign_compensation(body: EmployeeSalaryAssign, user=Depends(require_r
                     "calculation_type": ct, "value": val,
                 })
 
-    lines = _compute_lines(body.ctc_annual, components, structure_lines, body.line_overrides)
+    # Resolve state_code for PT slab lookup.
+    # Priority: explicit employee override → employee profile pt_state → branch state_code.
+    state_code = emp.get("pt_state")
+    if not state_code and emp.get("branch_id"):
+        br = await db.attendance_sites.find_one(
+            {"id": emp["branch_id"], "company_id": cid}, {"_id": 0, "state_code": 1})
+        if br:
+            state_code = br.get("state_code")
+    if not state_code:
+        # Fall back to company profile's primary state if set
+        prof = await db.company_profiles.find_one({"company_id": cid}, {"_id": 0, "state_code": 1})
+        if prof:
+            state_code = prof.get("state_code")
+
+    lines = _compute_lines(body.ctc_annual, components, structure_lines, body.line_overrides,
+                           state_code=state_code)
     gross, net = _compute_totals(lines)
 
     # Archive existing current

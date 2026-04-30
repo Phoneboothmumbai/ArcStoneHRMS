@@ -18,10 +18,64 @@ _gate = [_Depends(requires_module("expense"))]
 
 expenses_router = APIRouter(prefix="/api/expenses", tags=["expenses"], dependencies=_gate)
 travel_router = APIRouter(prefix="/api/travel-requests", tags=["travel-requests"], dependencies=_gate)
+policy_router = APIRouter(prefix="/api/expense-policies", tags=["expense-policies"], dependencies=_gate)
 
 ADMIN = ("super_admin", "company_admin", "country_head", "region_head")
 
 MAX_RECEIPT_BYTES = 2 * 1024 * 1024  # 2MB
+
+# Default per-item caps (INR) — applied only if company has no policy row in DB.
+# Prevents an employee from submitting a ₹50k "meals" item without anyone noticing.
+# HR can override via POST /api/expense-policies.
+_DEFAULT_POLICY = {
+    "meals":          {"max_per_item": 2_000,   "receipt_required_above": 500},
+    "travel_taxi":    {"max_per_item": 5_000,   "receipt_required_above": 500},
+    "travel_mileage": {"max_per_item": 10_000,  "receipt_required_above": 0},
+    "travel_hotel":   {"max_per_item": 15_000,  "receipt_required_above": 2_000},
+    "travel_flight":  {"max_per_item": 50_000,  "receipt_required_above": 2_000},
+    "fuel":           {"max_per_item": 3_000,   "receipt_required_above": 500},
+    "office_supplies":{"max_per_item": 5_000,   "receipt_required_above": 1_000},
+    "subscription":   {"max_per_item": 20_000,  "receipt_required_above": 1_000},
+    "training":       {"max_per_item": 50_000,  "receipt_required_above": 1_000},
+    "phone_internet": {"max_per_item": 2_000,   "receipt_required_above": 500},
+    "medical":        {"max_per_item": 20_000,  "receipt_required_above": 1_000},
+    "client_meeting": {"max_per_item": 5_000,   "receipt_required_above": 1_000},
+    "travel_per_diem":{"max_per_item": 2_500,   "receipt_required_above": 0},
+    "other":          {"max_per_item": 5_000,   "receipt_required_above": 500},
+}
+
+
+async def _load_policy(db, company_id: str) -> dict:
+    """Fetch per-category caps: DB override → default fallback."""
+    row = await db.expense_policies.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    stored = {p["category"]: p for p in row.get("rules", [])}
+    merged = {}
+    for cat, default in _DEFAULT_POLICY.items():
+        merged[cat] = {**default, **stored.get(cat, {})}
+    return merged
+
+
+def _enforce_policy(items: list, policy: dict) -> None:
+    """Raise 422 if any item breaches the cap or lacks a receipt.
+    Runs BEFORE the ExpenseClaim is saved — failure = no DB write."""
+    for idx, it in enumerate(items):
+        rule = policy.get(it["category"])
+        if not rule:
+            continue
+        amt = float(it.get("amount") or 0)
+        cap = rule.get("max_per_item")
+        if cap and amt > cap:
+            raise HTTPException(
+                422,
+                f"Item #{idx + 1} ({it['category']}): ₹{amt:,.0f} exceeds per-item cap of ₹{cap:,.0f}. "
+                f"Ask HR to raise the cap before resubmitting.",
+            )
+        thresh = rule.get("receipt_required_above")
+        if thresh and amt > thresh and not it.get("receipts"):
+            raise HTTPException(
+                422,
+                f"Item #{idx + 1} ({it['category']}): receipt is mandatory for amounts above ₹{thresh:,.0f}.",
+            )
 
 
 def _sum_items(items: list[dict]) -> float:
@@ -42,6 +96,9 @@ async def create_expense(body: ExpenseClaimCreate, user=Depends(get_current_user
             if len(r.base64_data) > int(MAX_RECEIPT_BYTES * 1.4):
                 raise HTTPException(400, f"Receipt '{r.file_name}' exceeds 2 MB limit")
     items = [i.model_dump() for i in body.items]
+    # Policy-cap enforcement — blocks submission if caps breached or receipts missing.
+    policy = await _load_policy(db, user["company_id"])
+    _enforce_policy(items, policy)
     doc = ExpenseClaim(
         company_id=user["company_id"], employee_id=user["employee_id"],
         employee_name=user["name"], title=body.title, purpose=body.purpose,
@@ -242,3 +299,34 @@ async def decide_travel(tid: str, body: dict, user=Depends(require_roles(*ADMIN)
     if r.matched_count == 0:
         raise HTTPException(404, "Not found")
     return await db.travel_requests.find_one({"id": tid}, {"_id": 0})
+
+
+
+# ---------------------------------------------------------------------------
+# Expense policies — per-company cap & receipt-threshold overrides
+# ---------------------------------------------------------------------------
+@policy_router.get("")
+async def get_policy(user=Depends(get_current_user)):
+    """Return merged policy (defaults + overrides) so the UI can show
+    'cap left for this month' hints before the user submits."""
+    db = get_db()
+    return await _load_policy(db, user.get("company_id"))
+
+
+@policy_router.put("")
+async def upsert_policy(body: dict, user=Depends(require_roles(*ADMIN))):
+    """HR overrides one or more category caps. Body shape:
+        { "rules": [ {"category": "meals", "max_per_item": 3000,
+                      "receipt_required_above": 300}, ... ] }
+    Unspecified categories keep defaults."""
+    db = get_db()
+    rules = body.get("rules") or []
+    for r in rules:
+        if r.get("category") not in _DEFAULT_POLICY:
+            raise HTTPException(422, f"Unknown category: {r.get('category')}")
+    await db.expense_policies.update_one(
+        {"company_id": user["company_id"]},
+        {"$set": {"rules": rules, "updated_at": now_iso(), "updated_by": user["id"]}},
+        upsert=True,
+    )
+    return await _load_policy(db, user["company_id"])
