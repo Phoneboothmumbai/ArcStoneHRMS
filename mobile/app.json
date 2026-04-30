@@ -38,7 +38,7 @@
         "backgroundColor": "#09090b"
       },
       "package": "io.arcstone.hrms",
-      "versionCode": 4,
+      "versionCode": 5,
       "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",

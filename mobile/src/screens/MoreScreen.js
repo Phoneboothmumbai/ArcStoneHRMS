@@ -15,8 +15,8 @@ const SECTIONS = [
     items: [
       { key: "Payslips",   label: "Payslips",         hint: "View & download payslips",    icon: "💰", native: true },
       { key: "Expenses",   label: "Expenses & Travel", hint: "File and track expense claims", icon: "🧾", native: true },
-      { key: "WV.Loans",   label: "Loans",            hint: "Request a salary advance",     icon: "🏦",
-        path: "/app/loans?embed=mobile", entitlement: "expense" },
+      { key: "Loans",      label: "Loans",            hint: "Request a salary advance",     icon: "🏦", native: true,
+        entitlement: "expense" },
     ],
   },
   {
@@ -41,8 +41,7 @@ const SECTIONS = [
         path: "/app/requests?embed=mobile" },
       { key: "WV.Insurance",  label: "Insurance",        hint: "Group policies & file claims",   icon: "🩺" ,
         path: "/app/insurance?embed=mobile" },
-      { key: "WV.KB",         label: "Knowledge base",   hint: "FAQs & articles",                icon: "📖",
-        path: "/app/kb?embed=mobile" },
+      { key: "KnowledgeBase", label: "Knowledge base",   hint: "FAQs & articles",                icon: "📖", native: true },
       { key: "WV.Submissions", label: "My Submissions",  hint: "All your filed forms",          icon: "🗂️",
         path: "/app/my-submissions?embed=mobile" },
     ],

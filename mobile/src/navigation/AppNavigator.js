@@ -15,6 +15,8 @@ import NotificationsScreen from "../screens/NotificationsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import PayslipsScreen from "../screens/PayslipsScreen";
 import ExpensesScreen from "../screens/ExpensesScreen";
+import LoansScreen from "../screens/LoansScreen";
+import KnowledgeBaseScreen from "../screens/KnowledgeBaseScreen";
 import MoreScreen from "../screens/MoreScreen";
 import WebViewScreen from "../screens/WebViewScreen";
 import { colors } from "../lib/theme";
@@ -119,6 +121,8 @@ function Root() {
           <Stack.Screen name="Profile"      component={ProfileScreen}       options={{ title: "My Profile" }}/>
           <Stack.Screen name="Payslips"     component={PayslipsScreen}      options={{ title: "Payslips" }}/>
           <Stack.Screen name="Expenses"     component={ExpensesScreen}      options={{ title: "Expenses & Travel" }}/>
+          <Stack.Screen name="Loans"        component={LoansScreen}         options={{ title: "My Loans" }}/>
+          <Stack.Screen name="KnowledgeBase" component={KnowledgeBaseScreen} options={{ title: "Knowledge base" }}/>
           <Stack.Screen name="WebView"      component={WebViewScreen}       options={({ route }) => ({ title: route.params?.title || "Arcstone" })}/>
         </>
       ) : (
