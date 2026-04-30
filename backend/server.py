@@ -94,6 +94,15 @@ from routers.statutory_compliance import (
 from routers.public_routes import router as public_router
 from routers.mobile_routes import router as mobile_router
 from routers.employment_class_routes import router as employment_class_router, admin as employment_class_admin_router
+from routers.branch_ops_routes import (
+    docs_router as branch_docs_router, docs_admin as branch_docs_admin_router,
+    rec_router as recurring_router, branch_rec as branch_rec_router,
+)
+from routers.joining_kit_routes import (
+    cat_router as procurement_cat_router,
+    kit_tpl_router, kit_iss_router,
+)
+from routers.budget_routes import router as budgets_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 log = logging.getLogger("hrms")
@@ -217,6 +226,14 @@ app.include_router(public_router)
 app.include_router(mobile_router)
 app.include_router(employment_class_router)
 app.include_router(employment_class_admin_router)
+app.include_router(branch_docs_router)
+app.include_router(branch_docs_admin_router)
+app.include_router(recurring_router)
+app.include_router(branch_rec_router)
+app.include_router(procurement_cat_router)
+app.include_router(kit_tpl_router)
+app.include_router(kit_iss_router)
+app.include_router(budgets_router)
 
 # SpineHR-aligned modules
 from routers.resource_booking_routes import resources_router, bookings_router as resource_bookings_router

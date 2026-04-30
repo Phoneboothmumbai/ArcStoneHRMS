@@ -13,6 +13,50 @@
 
 ## What's been implemented
 
+### Apr 30, 2026 — Phases 3 + 4 + 2: Branch Ops, Joining Kits, Budgets 🏢
+**Built in one session, end-to-end backend + frontend with seeded demo data.**
+
+**Phase 3 — Branch Operations:**
+- **Branch Document Vault** (`models_branch_ops.py`, `routers/branch_ops_routes.py`):
+  - 10 doc types (utility_bill, rent_agreement, property_tax, fire_safety, business_license, AMC, insurance, etc.)
+  - Upload base64 PDFs/images (5MB cap), expiry tracking, vendor name + amount + period dates.
+  - `GET /api/branches/{id}/documents`, POST/PUT/DELETE, `GET .../{id}/file` for download.
+  - **Org-wide expiring alerts**: `GET /api/branch-documents/expiring?days=30` returns docs ranked by expiry with `days_until_expiry` annotated.
+- **Recurring Expense Scheduler**:
+  - `RecurringExpenseTemplate` with three modes per user spec: **AUTO_SUBMIT** (critical bills fire into approval), **AUTO_DRAFT** (manager reviews), **MANUAL_ONE_CLICK** (template library).
+  - `RecurringExpenseRun` tracking with idempotency on (template_id, period_month) to prevent double-runs.
+  - Cron tick wired into `cleanup_loop` (every 6h) — sweeps active templates whose `next_run_at` ≤ now.
+  - Manual `run-now` endpoint for any template.
+- **Frontend** `pages/BranchOperations.jsx` — branch picker + 3 tabs: Document Vault (upload modal, expiry badges), Recurring Expenses (mode picker UI, run-now button), Expiry Alerts (org-wide window: 7/15/30/60/90 days).
+- **Seed**: 18 docs + 16 recurring templates (BESCOM electricity, Airtel internet, BWSSB water, tea/coffee, housekeeping, drinking water, SIM cards, stationery) across 2 branches.
+
+**Phase 4 — Joining Kit + Procurement Categories:**
+- **Procurement Category Catalog** (`models_joining_kit.PROCUREMENT_CATEGORIES`): 8 categories × 6-11 sub-items each (Stationery General/Printing, Joining Kit, Repair & Maintenance, Branding & Promotion, Gifting & Misc, Office Supplies, IT Hardware) — exposed at `GET /api/procurement/category-catalog` for RFQ/PO forms.
+- **Kit Templates** + **Kit Issuances** (`routers/joining_kit_routes.py`):
+  - Template: department/branch/employment_class scoping, `is_default` per scope, items list with `is_returnable` flag.
+  - Issuance lifecycle: `draft → issued → completed` (employee e-signs) → `partial / returned` (on exit).
+  - Endpoints: GET/POST/PUT/DELETE templates; create issuance (auto-clones template items); `/issue` marks all issued; `/sign` records employee signature; `/return` accepts list of returned SKUs.
+- **Frontend** `pages/JoiningKit.jsx` — Issuances + Templates tabs with status badges and one-click actions.
+- **Seed**: 2 templates ("Standard Joining Kit" 6 items default, "Engineering Onboarding Kit" 6 items with laptop+dock+headset).
+
+**Phase 2 — Budget Module:**
+- **BudgetEnvelope** model: Branch (req) × Department × Cost-Center × Category × FY × Period (yearly/quarterly/monthly).
+- **Most-specific-match** algorithm picks the right envelope when multiple cover a request.
+- **Real-time utilization** = approved/submitted expense_claims + non-cancelled POs scoped to branch.
+- **Soft-warn 80% / hard-block 100%** thresholds configurable per envelope, with `allow_override` flag.
+- Endpoints: `GET/POST/PUT/DELETE /api/budgets`, `GET /api/budgets/dashboard` (aggregated), **`POST /api/budgets/check`** (pre-flight before submitting an expense/PO — returns `{matched, block, warn, overridable, message, pct_after, ...}`).
+- Indian fiscal-year convention: FY2027 = April 2026 → March 2027 (`_fy_label_now()`).
+- **Frontend** `pages/Budgets.jsx` — FY selector, dashboard tiles (envelopes / total / utilized / remaining), envelope cards with progress bars (green/amber/red), create modal with all dimensions.
+- **Seed**: 10 envelopes across 2 branches × 5 categories (OpEx, Travel, Stationery, IT Hardware, Joining Kit Spend).
+
+**Sidebar & routes**: Added `/app/branch-operations`, `/app/budgets`, `/app/joining-kit` with role gating; new sidebar entries under **People** module.
+
+**Verified end-to-end via curl**:
+- Budget pre-flight on ₹50K travel → matched, 19.5% util, OK
+- ₹420K travel → blocked at 112% (₹48K over)
+- ₹600K travel → blocked at 157% (₹228K over)
+- Recurring run-now creates expense_claim with status=submitted in current period.
+
 ### Apr 30, 2026 — Phase 1: Employment Classes (On-Roll / Off-Roll / Intern) 🪪
 **New foundation for a 6-phase branch-operations rollout.** 12/12 backend tests + end-to-end frontend validation green.
 

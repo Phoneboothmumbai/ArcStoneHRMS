@@ -56,6 +56,35 @@ async def _purge_location_pings_once() -> dict:
     return summary
 
 
+async def _fire_due_recurring_expenses_once() -> dict:
+    """Iterate active recurring expense templates whose next_run_at has passed.
+    Auto-create draft/submitted expense claims, idempotent on (template_id, period_month).
+    """
+    from routers.branch_ops_routes import _create_expense_from_template
+    db = get_db()
+    summary = {"fired": 0, "errors": 0}
+    try:
+        now_iso_str = datetime.now(timezone.utc).isoformat()
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
+        cursor = db.recurring_expense_templates.find(
+            {"active": True, "next_run_at": {"$lte": now_iso_str},
+             "mode": {"$in": ["AUTO_SUBMIT", "AUTO_DRAFT"]}},
+            {"_id": 0},
+        )
+        async for tpl in cursor:
+            try:
+                await _create_expense_from_template(
+                    db, tpl, period, triggered_by="cron", mode=tpl.get("mode", "AUTO_DRAFT"),
+                )
+                summary["fired"] += 1
+            except Exception:
+                log.exception("recurring expense fire failed for %s", tpl.get("id"))
+                summary["errors"] += 1
+    except Exception as e:
+        log.exception("recurring expense sweep failed: %s", e)
+    return summary
+
+
 async def cleanup_loop():
     """Long-running asyncio task. Cancellable on shutdown."""
     await asyncio.sleep(INITIAL_DELAY_SECONDS)
@@ -64,6 +93,9 @@ async def cleanup_loop():
             s = await _purge_location_pings_once()
             if s["deleted"]:
                 log.info("location pings purged: %s", s)
+            r = await _fire_due_recurring_expenses_once()
+            if r["fired"] or r["errors"]:
+                log.info("recurring expenses sweep: %s", r)
         except asyncio.CancelledError:
             raise
         except Exception:

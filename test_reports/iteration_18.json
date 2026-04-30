@@ -1,0 +1,37 @@
+{
+  "summary": "Phase 3+4+2 full-stack testing (Branch Document Vault, Recurring Expense Scheduler, Joining Kit, Procurement Catalog, Budgets). 15/15 pytest backend cases green; all 3 UI pages render with seeded data under /app/branch-operations, /app/budgets, /app/joining-kit. Sidebar entries (Branch ops, Budgets, Joining kits) present for company_admin.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/app/budgets", "issues": ["FY selector defaults to FY2026 (= current Indian FY Apr 2025-Mar 2026), while seed scripts target FY2027. Users must manually switch FY to see the seeded Phase-2 demo data. Consider defaulting to the FY where seed data exists, or seeding current FY too."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration18_branch_ops_kit_budget.py",
+    "/app/test_reports/pytest/iteration18_results.xml"
+  ],
+  "action_items": [
+    "[LOW] Add data-testid attributes on row-level cards (doc-row-{id}, rec-row-{id}, rec-run-now-{id}, budget-tile-envelopes/total/utilized/remaining, kit-template-{id}) to make Playwright tests more stable.",
+    "[LOW] Consider defaulting Budgets FY selector to the FY where seeded envelopes exist (currently defaults to current FY = FY2026, but seed targets FY2027)."
+  ],
+  "critical_code_review_comments": [
+    "[INFO] _fy_label_now() labels FY by end-year (FY2026 = Apr 2025 → Mar 2026) per code comment — matches spec convention (FY2027 = Apr 2026 → Mar 2027). No bug, just document this clearly in UI help text.",
+    "[INFO] Budget preflight picks most-specific envelope correctly via _specificity(). Expense _utilization() does a Python-level sum instead of Mongo aggregation — acceptable at current scale but will be slow if expense_claims grows beyond ~10K/branch. Consider $group aggregation later.",
+    "[INFO] branch_ops_routes._check_branch_access has a loose fall-through that silently allows sub_manager/assistant_manager across branches — intentional per comment but worth tightening when row-level ACLs land.",
+    "[INFO] Recurring run-now idempotency works via (template_id, period_month) unique lookup; confirmed duplicate POST returns same run/expense id.",
+    "[INFO] Joining Kit issuance correctly snapshots template items at creation (tested: items[].length matches template exactly)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration18_branch_ops_kit_budget.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "hr@acme.io / Hr@12345 (company_admin for ACME) — used for all frontend and backend API tests. admin@hrms.io / Admin@123 available for super_admin.",
+  "seed_data_creation": "No new seed data created. Confirmed seeded: 9 docs/branch (first 2 branches), 8 recurring templates/branch (first 2), 10 budget envelopes in FY2027 (and additional FY2026 envelopes from prior runs), 2 joining-kit templates (Standard + Engineering) with default flag.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Branches endpoint is /api/org/branches (NOT /api/branches). Login returns token under 'access_token' key. Frontend app routes live under /app/... prefix (hr@acme.io lands at /app/hr). FY2026 is current FY in Jan 2026; FY2027 = future seeded demo. Backend test file /app/backend/tests/test_iteration18_branch_ops_kit_budget.py covers full CRUD + idempotency + preflight and can be used as regression baseline.",
+  "rca of the issue": "N/A — no bugs found. Backend 15/15 green, frontend UI renders correctly on all 3 new pages with expected seeded data and tab structure."
+}

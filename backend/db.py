@@ -47,6 +47,23 @@ async def ensure_indexes() -> None:
     await db.employees.create_index([("company_id", 1), ("employment_class", 1)])
     # Employment-class permission overrides per company
     await db.employment_class_permissions.create_index("company_id", unique=True)
+    # Phase 3 — Branch document vault + recurring expense scheduler
+    await db.branch_documents.create_index([("company_id", 1), ("branch_id", 1)])
+    await db.branch_documents.create_index([("company_id", 1), ("expiry_date", 1)])
+    await db.branch_documents.create_index("doc_type")
+    await db.recurring_expense_templates.create_index([("company_id", 1), ("branch_id", 1)])
+    await db.recurring_expense_templates.create_index([("active", 1), ("next_run_at", 1)])
+    await db.recurring_expense_runs.create_index(
+        [("template_id", 1), ("period_month", 1)], unique=True,
+    )
+    await db.recurring_expense_runs.create_index([("company_id", 1), ("created_at", -1)])
+    # Phase 4 — Joining Kit
+    await db.kit_templates.create_index([("company_id", 1), ("is_default", 1)])
+    await db.kit_issuances.create_index([("company_id", 1), ("employee_id", 1)])
+    await db.kit_issuances.create_index([("company_id", 1), ("status", 1)])
+    # Phase 2 — Budgets
+    await db.budget_envelopes.create_index([("company_id", 1), ("branch_id", 1), ("fiscal_year", 1)])
+    await db.budget_envelopes.create_index([("company_id", 1), ("status", 1)])
     # Migration: any employee doc missing employment_class → on_roll
     await db.employees.update_many(
         {"employment_class": {"$exists": False}},
