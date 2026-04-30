@@ -76,7 +76,7 @@ async def _send_email(to_email: str, subject: str, html: str) -> bool:
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
-                "from": os.environ.get("RESEND_FROM", "Arcstone <no-reply@arcstone.app>"),
+                "from": os.environ.get("RESEND_FROM", "Arcstone <no-reply@arcstone.co.in>"),
                 "to": [to_email], "subject": subject, "html": html,
             },
             timeout=10,

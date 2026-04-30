@@ -297,7 +297,7 @@ function MobileAppSection() {
             </ul>
             <div className="mt-10 pt-6 border-t border-zinc-800 text-xs text-zinc-500 flex items-start gap-2">
               <Info size={14} className="mt-0.5 flex-none"/>
-              <span>Need help? Email <a href={`mailto:${meta?.support_email || "support@arcstone.io"}`} className="text-zinc-300 underline">{meta?.support_email || "support@arcstone.io"}</a> with your work email and we will set up your account before you install.</span>
+              <span>Need help? Email <a href={`mailto:${meta?.support_email || "support@arcstone.co.in"}`} className="text-zinc-300 underline">{meta?.support_email || "support@arcstone.co.in"}</a> with your work email and we will set up your account before you install.</span>
             </div>
           </div>
 

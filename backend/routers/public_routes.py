@@ -32,7 +32,7 @@ APK_REMOTE_URL  = os.environ.get("MOBILE_APK_REMOTE_URL",  "").strip()
 PLAY_STORE_URL  = os.environ.get("MOBILE_PLAY_STORE_URL",  "")
 APP_STORE_URL   = os.environ.get("MOBILE_APP_STORE_URL",   "")
 TESTFLIGHT_URL  = os.environ.get("MOBILE_TESTFLIGHT_URL",  "")
-SUPPORT_EMAIL   = os.environ.get("MOBILE_SUPPORT_EMAIL",   "support@arcstone.io")
+SUPPORT_EMAIL   = os.environ.get("MOBILE_SUPPORT_EMAIL",   "support@arcstone.co.in")
 
 # Cache the remote APK size so we don't HEAD on every landing-page hit.
 _remote_size_cache: dict = {"url": None, "size_mb": None}

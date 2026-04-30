@@ -10,7 +10,7 @@ import { colors, spacing, radii, typography } from "../lib/theme";
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "http://138.199.146.191";
+  "https://arcstone.co.in";
 
 const inr = (n) => `₹ ${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 

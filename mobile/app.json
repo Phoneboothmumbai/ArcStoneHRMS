@@ -58,7 +58,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "http://138.199.146.191",
+      "apiBaseUrl": "https://arcstone.co.in",
       "eas": {
         "projectId": "5a04fa8a-bd56-43ee-89c1-bd1c08a87fcd"
       }

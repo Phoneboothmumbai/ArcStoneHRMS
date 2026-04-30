@@ -8,7 +8,7 @@ import { colors } from "../lib/theme";
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "http://138.199.146.191";
+  "https://arcstone.co.in";
 
 /**
  * Reusable WebView wrapper. Loads any web app route inside the native shell,

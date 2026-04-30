@@ -22,7 +22,7 @@ const MAX_QUEUE = 500;        // safety cap
 
 const BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl ||
-  "http://138.199.146.191";
+  "https://arcstone.co.in";
 
 async function flushQueue() {
   const token = await AsyncStorage.getItem("access_token");
