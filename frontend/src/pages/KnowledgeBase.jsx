@@ -159,12 +159,16 @@ export function KBAdmin() {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [audienceRoles, setAudienceRoles] = useState([]);
 
   const load = async () => {
     const { data } = await api.get("/kb/admin/articles");
     setRows(data);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.get("/kb/admin/roles").then(r => setAudienceRoles(r.data)).catch(() => {});
+  }, []);
 
   const del = async (id) => {
     if (!window.confirm("Delete this article?")) return;
@@ -173,15 +177,38 @@ export function KBAdmin() {
     load();
   };
 
-  const openNew = () => { setEditing({ title:"", category:"Getting Started", excerpt:"", content:"", tags:"", related_page:"", is_published:true }); setOpen(true); };
-  const openEdit = (a) => { setEditing({ ...a, tags: (a.tags||[]).join(", ") }); setOpen(true); };
+  const openNew = () => {
+    setEditing({
+      title: "", category: "Getting Started", excerpt: "", content: "",
+      tags: "", related_page: "", is_published: true,
+      visible_roles: [],   // empty = visible to all
+    });
+    setOpen(true);
+  };
+  const openEdit = (a) => {
+    setEditing({ ...a, tags: (a.tags || []).join(", "), visible_roles: a.visible_roles || [] });
+    setOpen(true);
+  };
+
+  const toggleRole = (roleValue) => {
+    setEditing(f => {
+      const cur = f.visible_roles || [];
+      return {
+        ...f,
+        visible_roles: cur.includes(roleValue)
+          ? cur.filter(r => r !== roleValue)
+          : [...cur, roleValue],
+      };
+    });
+  };
 
   const save = async () => {
     const payload = {
       title: editing.title, category: editing.category, excerpt: editing.excerpt,
       content: editing.content, related_page: editing.related_page || null,
       is_published: !!editing.is_published,
-      tags: (editing.tags||"").split(",").map(s=>s.trim()).filter(Boolean),
+      tags: (editing.tags || "").split(",").map(s => s.trim()).filter(Boolean),
+      visible_roles: editing.visible_roles || [],
     };
     try {
       if (editing.id) {
@@ -197,16 +224,23 @@ export function KBAdmin() {
   };
 
   const CATEGORIES = [
-    "Getting Started","Employees & Profile","Onboarding","Offboarding & Exit",
-    "Leave & Attendance","Approvals & Workflows","Admin & Modules",
-    "India Statutory (PF, ESIC, PT)","Troubleshooting",
+    "Getting Started", "Employees & Profile", "Onboarding", "Offboarding & Exit",
+    "Leave & Attendance", "Approvals & Workflows", "Admin & Modules",
+    "India Statutory (PF, ESIC, PT)", "Troubleshooting",
   ];
+
+  // Render the role badges shown next to each row in the admin list.
+  const audienceLabel = (vr) => {
+    if (!vr || vr.length === 0) return "All roles";
+    if (vr.length === 1) return vr[0].replace(/_/g, " ");
+    return `${vr.length} roles`;
+  };
 
   return (
     <AppShell title="Knowledge Base · Admin">
       <SectionCard
         title={`${rows.length} articles`}
-        subtitle="Platform-wide help content. Visible to every logged-in user."
+        subtitle="Each article can be restricted to specific roles. Empty = everyone."
         testid="section-kb-admin"
         action={<Button size="sm" onClick={openNew} className="gap-1.5" data-testid="kb-new-btn"><Plus size={14} weight="bold"/> New article</Button>}
       >
@@ -216,10 +250,13 @@ export function KBAdmin() {
             <div key={a.id} className="flex items-center gap-4 py-3" data-testid={`kb-admin-row-${a.id}`}>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{a.title}</div>
-                <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2">
+                <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="text-[10px]">{a.category}</Badge>
                   <span>/{a.slug}</span>
                   {!a.is_published && <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-200 text-amber-700">DRAFT</Badge>}
+                  <Badge variant="outline" className={`text-[10px] capitalize ${(!a.visible_roles || a.visible_roles.length === 0) ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-blue-50 border-blue-200 text-blue-700"}`} title={(a.visible_roles||[]).join(', ')}>
+                    {audienceLabel(a.visible_roles)}
+                  </Badge>
                   <span>· {a.view_count} views</span>
                 </div>
               </div>
@@ -269,9 +306,44 @@ export function KBAdmin() {
                 <Label>Tags (comma separated)</Label>
                 <Input value={editing.tags||""} onChange={e=>setEditing(f=>({...f,tags:e.target.value}))} className="mt-1" placeholder="basics, tour, statutory"/>
               </div>
+
+              {/* ---- Visible-to-roles multiselect ---- */}
+              <div className="rounded-md border border-zinc-200 bg-zinc-50/50 p-3" data-testid="kb-roles-block">
+                <Label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">Who can see this article?</Label>
+                <p className="text-[11px] text-zinc-500 mt-0.5 mb-2">
+                  Tick one or more roles. Leave empty to make it visible to everyone.
+                  Admins (super, company, reseller) always see every article.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {audienceRoles.map(r => {
+                    const on = (editing.visible_roles || []).includes(r.value);
+                    return (
+                      <button
+                        type="button"
+                        key={r.value}
+                        onClick={() => toggleRole(r.value)}
+                        data-testid={`kb-role-${r.value}`}
+                        className={`px-2.5 py-1 text-xs rounded-full border transition ${
+                          on
+                            ? "bg-zinc-900 text-white border-zinc-900"
+                            : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-500"
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(editing.visible_roles || []).length === 0 && (
+                  <div className="text-[11px] text-emerald-700 mt-2 font-medium">
+                    Currently: visible to everyone (no role restriction)
+                  </div>
+                )}
+              </div>
+
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={!!editing.is_published} onChange={e=>setEditing(f=>({...f,is_published:e.target.checked}))}/>
-                Published (visible to everyone)
+                Published
               </label>
             </div>
           )}
