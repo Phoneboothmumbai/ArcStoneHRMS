@@ -14,6 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from db import init_db, ensure_indexes, seed_demo_data, get_db
 from routers.auth_routes import router as auth_router
+from routers.audit_routes import router as audit_router
 from routers.resellers_routes import router as resellers_router
 from routers.companies_routes import router as companies_router
 from routers.org_routes import router as org_router
@@ -99,6 +100,8 @@ log = logging.getLogger("hrms")
 async def lifespan(app: FastAPI):
     init_db()
     await ensure_indexes()
+    from audit import ensure_indexes as _ensure_audit_indexes
+    await _ensure_audit_indexes(get_db())
     await seed_demo_data()
     # Background cleanup: purges location_pings beyond retention (default 60d)
     from cleanup_tasks import cleanup_loop
@@ -133,6 +136,7 @@ async def health():
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(audit_router)
 app.include_router(resellers_router)
 app.include_router(companies_router)
 app.include_router(org_router)

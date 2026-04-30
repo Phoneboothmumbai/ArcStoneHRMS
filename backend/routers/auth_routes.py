@@ -12,11 +12,34 @@ from auth import (
 )
 from db import get_db
 from models import LoginBody, RegisterBody, now_iso, uid
+from password_policy import validate_password
+from audit import log_event
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 LOCKOUT_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
+
+# Pure IP-based rate limit — protects against a botnet hammering many
+# different emails from the same IP (per-email lockout alone would miss this).
+IP_WINDOW_SECONDS = 60
+IP_MAX_ATTEMPTS = 20
+
+
+async def _check_ip_rate_limit(db, ip: str) -> None:
+    """Throttle ANY auth POST on the same IP to 20 / 60s."""
+    since = (datetime.now(timezone.utc) - timedelta(seconds=IP_WINDOW_SECONDS)).isoformat()
+    count = await db.auth_attempts_log.count_documents({
+        "ip": ip, "ts": {"$gte": since},
+    })
+    if count >= IP_MAX_ATTEMPTS:
+        raise HTTPException(429, "Too many auth requests from this network. Please wait a minute.")
+
+
+async def _record_attempt(db, ip: str, email: str, ok: bool) -> None:
+    await db.auth_attempts_log.insert_one({
+        "ip": ip, "email": email, "ok": ok, "ts": datetime.now(timezone.utc).isoformat(),
+    })
 
 
 async def _check_lockout(db, identifier: str) -> None:
@@ -47,28 +70,40 @@ async def login(body: LoginBody, request: Request, response: Response):
     email = body.email.lower()
     ip = request.client.host if request.client else "unknown"
     identifier = f"{ip}:{email}"
+    await _check_ip_rate_limit(db, ip)
     await _check_lockout(db, identifier)
 
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
         await _register_failure(db, identifier)
+        await _record_attempt(db, ip, email, ok=False)
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if not user.get("is_active", True):
+        await log_event(db, actor=None, event="auth.login.denied",
+                        resource_type="user", resource_id=user.get("id"),
+                        detail={"email": email, "reason": "inactive", "ip": ip})
         raise HTTPException(status_code=403, detail="Account is disabled")
 
     await _clear_attempts(db, identifier)
+    await _record_attempt(db, ip, email, ok=True)
     access = create_access_token(user["id"], user["email"], user["role"], user.get("company_id"), user.get("reseller_id"))
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
+    await log_event(db, actor=user, event="auth.login", resource_type="user",
+                    resource_id=user["id"], detail={"ip": ip})
     user.pop("password_hash", None)
     user.pop("_id", None)
     return {"user": user, "access_token": access}
 
 
 @router.post("/register")
-async def register(body: RegisterBody, response: Response):
+async def register(body: RegisterBody, request: Request, response: Response):
     db = get_db()
     email = body.email.lower()
+    ip = request.client.host if request.client else "unknown"
+    await _check_ip_rate_limit(db, ip)
+    # Enforce policy BEFORE we do anything persistent.
+    validate_password(body.password)
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
     doc = {
@@ -88,6 +123,8 @@ async def register(body: RegisterBody, response: Response):
     access = create_access_token(doc["id"], doc["email"], doc["role"], doc.get("company_id"), doc.get("reseller_id"))
     refresh = create_refresh_token(doc["id"])
     set_auth_cookies(response, access, refresh)
+    await log_event(db, actor=doc, event="auth.register", resource_type="user",
+                    resource_id=doc["id"], detail={"role": doc["role"], "ip": ip})
     doc.pop("password_hash", None)
     doc.pop("_id", None)
     return {"user": doc, "access_token": access}
