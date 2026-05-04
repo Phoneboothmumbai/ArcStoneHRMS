@@ -458,9 +458,10 @@ async def get_po(pid: str, user=Depends(get_current_user)):
 
 
 @po_router.post("/{pid}/submit-for-approval")
-async def submit_po(pid: str, user=Depends(require_roles(*PROCURE))):
-    """Fire into the approval chain engine."""
+async def submit_po(pid: str, override_budget: bool = Query(False), user=Depends(require_roles(*PROCURE))):
+    """Fire into the approval chain engine. Pre-flight budget check first."""
     from routers.approvals_routes import create_approval_request
+    from budget_helpers import check_budget
     db = get_db()
     cid = _cid(user)
     po = await db.purchase_orders.find_one({"id": pid, "company_id": cid}, {"_id": 0})
@@ -468,6 +469,21 @@ async def submit_po(pid: str, user=Depends(require_roles(*PROCURE))):
         raise HTTPException(404, "PO not found")
     if po["status"] not in ("draft",):
         raise HTTPException(400, "Only draft POs can be submitted")
+
+    # Budget pre-flight (PO branch derived from delivery_location → first 8 chars heuristic
+    # is fragile; we rely on a explicit branch_id field if present)
+    branch_id = po.get("branch_id")
+    bud = await check_budget(
+        db, company_id=cid, branch_id=branch_id,
+        category=None, amount=float(po.get("grand_total", 0) or 0),
+    )
+    if bud.get("block"):
+        if not (user["role"] in ("super_admin", "company_admin") and bud.get("overridable") and override_budget):
+            raise HTTPException(
+                422, f"Budget blocked: {bud['message']}"
+                + (" Add ?override_budget=true to force." if bud.get("overridable") else ""),
+            )
+
     ap = await create_approval_request(
         db, company_id=cid, request_type="purchase_order",
         requester_user_id=user["id"], requester_name=user["name"],
@@ -475,12 +491,12 @@ async def submit_po(pid: str, user=Depends(require_roles(*PROCURE))):
         details={"po_id": pid, "vendor_name": po["vendor_name"],
                  "grand_total": po["grand_total"], "currency": po["currency"]},
         linked_id=pid,
-        context={"cost": po["grand_total"]},
+        context={"cost": po["grand_total"], "branch_id": branch_id},
     )
     await db.purchase_orders.update_one(
         {"id": pid, "company_id": cid},
         {"$set": {"status": "awaiting_approval", "approval_request_id": ap["id"],
-                  "updated_at": now_iso()}},
+                  "budget_check": bud, "updated_at": now_iso()}},
     )
     return await db.purchase_orders.find_one({"id": pid}, {"_id": 0})
 

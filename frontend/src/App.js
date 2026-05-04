@@ -62,6 +62,7 @@ import OrgChart from "./pages/OrgChart";
 import Branches from "./pages/Branches";
 import EmploymentClasses from "./pages/EmploymentClasses";
 import BranchOperations from "./pages/BranchOperations";
+import BranchDashboard from "./pages/BranchDashboard";
 import Budgets from "./pages/Budgets";
 import JoiningKit from "./pages/JoiningKit";
 import { ModulesProvider } from "./context/ModulesContext";
@@ -170,6 +171,7 @@ function App() {
           <Route path="/app/branches" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Branches /></ProtectedRoute>} />
           <Route path="/app/employment-classes" element={<ProtectedRoute roles={["super_admin","company_admin"]}><EmploymentClasses /></ProtectedRoute>} />
           <Route path="/app/branch-operations" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><BranchOperations /></ProtectedRoute>} />
+          <Route path="/app/branch-dashboard" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><BranchDashboard /></ProtectedRoute>} />
           <Route path="/app/budgets" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Budgets /></ProtectedRoute>} />
           <Route path="/app/joining-kit" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><JoiningKit /></ProtectedRoute>} />
 

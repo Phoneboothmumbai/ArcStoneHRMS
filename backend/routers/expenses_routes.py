@@ -86,7 +86,8 @@ def _sum_items(items: list[dict]) -> float:
 # Expense claims
 # ---------------------------------------------------------------------------
 @expenses_router.post("")
-async def create_expense(body: ExpenseClaimCreate, user=Depends(get_current_user)):
+async def create_expense(body: ExpenseClaimCreate, override_budget: bool = Query(False),
+                         user=Depends(get_current_user)):
     db = get_db()
     if not user.get("employee_id"):
         raise HTTPException(400, "Not linked to an employee")
@@ -99,12 +100,40 @@ async def create_expense(body: ExpenseClaimCreate, user=Depends(get_current_user
     # Policy-cap enforcement — blocks submission if caps breached or receipts missing.
     policy = await _load_policy(db, user["company_id"])
     _enforce_policy(items, policy)
+
+    # Resolve branch_id from employee record for budget scoping
+    emp = await db.employees.find_one({"id": user["employee_id"]}, {"_id": 0, "branch_id": 1, "department_id": 1})
+    branch_id = (emp or {}).get("branch_id")
+    department_id = (emp or {}).get("department_id")
+    total = _sum_items(items)
+
+    # Budget pre-flight: warn or block based on envelope. Admin override via header X-Budget-Override.
+    from budget_helpers import check_budget
+    check = await check_budget(
+        db, company_id=user["company_id"], branch_id=branch_id,
+        department_id=department_id,
+        category=items[0]["category"] if items else None,
+        amount=total,
+    )
+    if check.get("block"):
+        if user["role"] in ADMIN and check.get("overridable") and override_budget:
+            pass  # admin explicitly overrode
+        elif user["role"] in ADMIN and check.get("overridable"):
+            raise HTTPException(
+                422,
+                f"Budget blocked: {check['message']} Add ?override_budget=true to force.",
+            )
+        else:
+            raise HTTPException(422, f"Budget blocked: {check['message']}")
+
     doc = ExpenseClaim(
         company_id=user["company_id"], employee_id=user["employee_id"],
         employee_name=user["name"], title=body.title, purpose=body.purpose,
         project_code=body.project_code, travel_request_id=body.travel_request_id,
-        items=items, currency=body.currency, total_amount=_sum_items(items),
+        items=items, currency=body.currency, total_amount=total,
     ).model_dump()
+    doc["branch_id"] = branch_id
+    doc["budget_check"] = check  # snapshot — visible in approval UI
     await db.expense_claims.insert_one(doc)
     doc.pop("_id", None)
     return doc
@@ -159,10 +188,27 @@ async def submit_expense(eid: str, user=Depends(get_current_user)):
         raise HTTPException(403, "Forbidden")
     if doc["status"] != "draft":
         raise HTTPException(400, f"Can't submit from status {doc['status']}")
-    # TODO: wire into approval engine (Phase 1H follow-up).
-    # For MVP we transition to "submitted" and rely on HR/admin to decide via /decide.
+    # Wire into the approval-workflow engine
+    from routers.approvals_routes import create_approval_request
+    ap = await create_approval_request(
+        db,
+        company_id=user["company_id"],
+        request_type="expense",
+        requester_user_id=user["id"],
+        requester_name=user["name"],
+        requester_employee_id=user.get("employee_id"),
+        title=f"Expense — {doc['title']} — {doc.get('currency', 'INR')} {doc['total_amount']:,.2f}",
+        details={"expense_id": eid, "title": doc["title"],
+                 "total_amount": doc["total_amount"], "currency": doc.get("currency", "INR")},
+        linked_id=eid,
+        context={"cost": doc["total_amount"], "branch_id": doc.get("branch_id")},
+    )
     await db.expense_claims.update_one(
-        {"id": eid}, {"$set": {"status": "submitted", "submitted_at": now_iso(), "updated_at": now_iso()}},
+        {"id": eid},
+        {"$set": {"status": "submitted",
+                  "submitted_at": now_iso(),
+                  "approval_request_id": ap["id"],
+                  "updated_at": now_iso()}},
     )
     return await db.expense_claims.find_one({"id": eid}, {"_id": 0})
 

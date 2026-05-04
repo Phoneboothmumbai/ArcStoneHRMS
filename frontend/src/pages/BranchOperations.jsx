@@ -10,7 +10,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "../components/ui/dialog";
-import { FilePdf, Receipt, Plus, Trash, ArrowClockwise, Warning, Buildings, CalendarBlank, FloppyDisk, DownloadSimple, Lightning, ClockClockwise } from "@phosphor-icons/react";
+import { FilePdf, Receipt, Plus, Trash, ArrowClockwise, Warning, Buildings, CalendarBlank, FloppyDisk, DownloadSimple, Lightning, ClockClockwise, UploadSimple, CheckCircle, XCircle } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 
 const DOC_TYPES = [
@@ -84,6 +84,9 @@ export default function BranchOperations() {
             ))}
           </SelectContent>
         </Select>
+        <div className="ml-auto">
+          {branchId && <OneTimeExpense branchId={branchId} />}
+        </div>
       </div>
 
       {!branchId ? (
@@ -208,6 +211,7 @@ function DocumentsPanel({ branchId }) {
               {DOC_TYPES.map(t => <SelectItem key={t.v} value={t.v}>{t.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <BulkUploader branchId={branchId} onDone={load}/>
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setForm(blankDoc()); }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5 h-9" data-testid="docs-upload-btn"><Plus size={14}/> Upload</Button>
@@ -568,3 +572,236 @@ function ExpiryAlertsPanel() {
     </SectionCard>
   );
 }
+
+
+// ─── One-time office expense quick form ──────────────────────────────────────
+const ONE_TIME_CATS = ["office_supplies", "subscription", "phone_internet", "travel_taxi", "client_meeting", "training", "other"];
+
+function OneTimeExpense({ branchId }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ category: "office_supplies", amount: "", description: "" });
+  const [check, setCheck] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const preflight = async () => {
+    if (!form.amount) return;
+    try {
+      const { data } = await api.post("/budgets/check", {
+        branch_id: branchId,
+        category: form.category,
+        amount: Number(form.amount),
+      });
+      setCheck(data);
+    } catch (e) { setCheck(null); }
+  };
+
+  useEffect(() => {
+    if (open && form.amount) {
+      const t = setTimeout(preflight, 300);
+      return () => clearTimeout(t);
+    }
+    setCheck(null);
+    // eslint-disable-next-line
+  }, [form.amount, form.category, open]);
+
+  const submit = async () => {
+    if (!form.amount) return toast.error("Amount required");
+    if (check?.block && !window.confirm("Budget will be blocked. Continue with admin override?")) return;
+    setBusy(true);
+    try {
+      const url = `/expenses${check?.block ? "?override_budget=true" : ""}`;
+      const { data: claim } = await api.post(url, {
+        title: form.description || `One-time ${form.category}`,
+        purpose: "Branch operations — one-time expense",
+        items: [{
+          category: form.category,
+          expense_date: new Date().toISOString().slice(0, 10),
+          amount: Number(form.amount),
+          currency: "INR",
+          description: form.description || `One-time ${form.category}`,
+          receipts: [],
+        }],
+        currency: "INR",
+      });
+      // Auto-submit through approval chain
+      await api.post(`/expenses/${claim.id}/submit`);
+      toast.success("One-time expense submitted for approval");
+      setOpen(false); setForm({ category: "office_supplies", amount: "", description: "" }); setCheck(null);
+    } catch (e) {
+      toast.error(formatApiError(e?.response?.data?.detail) || "Failed");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-9 gap-1.5" data-testid="bops-onetime-btn">
+          <Receipt size={14}/> One-time expense
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>One-time office expense</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <div><Label>Category *</Label>
+            <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
+              <SelectTrigger className="mt-1" data-testid="onetime-category"><SelectValue/></SelectTrigger>
+              <SelectContent>{ONE_TIME_CATS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div><Label>Amount (₹) *</Label>
+            <Input type="number" className="mt-1" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} placeholder="5000" data-testid="onetime-amount"/>
+          </div>
+          <div><Label>Description</Label>
+            <Input className="mt-1" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="A4 paper bulk order"/>
+          </div>
+          {check && (
+            <div className={`rounded-md p-3 border text-xs ${check.block ? "bg-red-50 border-red-200 text-red-800" : check.warn ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`} data-testid="onetime-budget-check">
+              <div className="font-medium mb-0.5">
+                {check.block ? <XCircle size={12} className="inline mr-1"/> : check.warn ? <Warning size={12} className="inline mr-1"/> : <CheckCircle size={12} className="inline mr-1"/>}
+                Budget pre-flight
+              </div>
+              <div>{check.message}</div>
+              {check.matched && (
+                <div className="mt-1 opacity-75">
+                  Envelope: {check.envelope_name} · {check.utilized_after}/{check.envelope_total} ({check.pct_after}%)
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={busy} data-testid="onetime-submit-btn">
+            {busy ? "Submitting…" : "Submit for approval"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+// ─── Bulk doc upload (drag-drop multi-file) ──────────────────────────────────
+function inferDocType(filename) {
+  const f = filename.toLowerCase();
+  if (/electric|bescom|tata.power|powerbill|kseb|water|bwssb|gas|mahanagar|airtel|jio/.test(f)) return "utility_bill";
+  if (/lease|rent|agreement|landlord/.test(f)) return "rent_agreement";
+  if (/property.tax|bbmp|mcd|municip/.test(f)) return "property_tax";
+  if (/fire|noc/.test(f)) return "fire_safety";
+  if (/insurance|policy/.test(f)) return "insurance";
+  if (/license|trade|shop/.test(f)) return "business_license";
+  if (/amc|maintenance|contract/.test(f)) return "amc_contract";
+  return "other";
+}
+
+function BulkUploader({ branchId, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const onDrop = async (evt) => {
+    evt.preventDefault();
+    const list = Array.from(evt.dataTransfer.files);
+    await readFiles(list);
+  };
+  const onPick = async (evt) => {
+    const list = Array.from(evt.target.files);
+    await readFiles(list);
+  };
+
+  const readFiles = async (list) => {
+    const accepted = list.filter(f => f.size <= 5 * 1024 * 1024);
+    if (list.length !== accepted.length) toast.warning(`${list.length - accepted.length} file(s) > 5MB skipped`);
+    const ready = await Promise.all(accepted.map(async f => {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      return {
+        id: Math.random().toString(36).slice(2),
+        file_name: f.name, content_type: f.type, base64_data: b64,
+        title: f.name.replace(/\.[^.]+$/, ""),
+        doc_type: inferDocType(f.name),
+        status: "ready",
+      };
+    }));
+    setFiles(prev => [...prev, ...ready]);
+  };
+
+  const remove = (id) => setFiles(prev => prev.filter(f => f.id !== id));
+
+  const uploadAll = async () => {
+    setBusy(true);
+    let ok = 0, fail = 0;
+    for (const f of files) {
+      try {
+        await api.post(`/branches/${branchId}/documents`, {
+          doc_type: f.doc_type,
+          title: f.title,
+          file_name: f.file_name,
+          content_type: f.content_type,
+          base64_data: f.base64_data,
+        });
+        ok++;
+      } catch (e) {
+        fail++;
+      }
+    }
+    toast.success(`Uploaded ${ok} document${ok !== 1 ? "s" : ""}${fail ? ` · ${fail} failed` : ""}`);
+    setFiles([]); setOpen(false); setBusy(false);
+    onDone?.();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setFiles([]); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-9 gap-1.5" data-testid="docs-bulk-btn">
+          <UploadSimple size={14}/> Bulk upload
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Bulk upload — drag &amp; drop</DialogTitle></DialogHeader>
+        <div
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          className="border-2 border-dashed border-zinc-300 rounded-lg p-8 text-center hover:border-zinc-500 transition cursor-pointer"
+          onClick={() => document.getElementById("bulk-file-input")?.click()}
+          data-testid="bulk-dropzone"
+        >
+          <UploadSimple size={32} className="mx-auto text-zinc-400 mb-2"/>
+          <div className="text-sm font-medium text-zinc-700">Drop PDFs / images here</div>
+          <div className="text-xs text-zinc-500 mt-1">or click to browse · max 5MB each · type auto-inferred from filename</div>
+          <input id="bulk-file-input" type="file" multiple accept="application/pdf,image/*" className="hidden" onChange={onPick}/>
+        </div>
+        {files.length > 0 && (
+          <div className="space-y-2 max-h-72 overflow-y-auto" data-testid="bulk-file-list">
+            {files.map(f => (
+              <div key={f.id} className="flex items-center gap-2 border border-zinc-200 rounded-md p-2 text-sm">
+                <FilePdf size={14} className="text-zinc-500 flex-none"/>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{f.file_name}</div>
+                  <div className="text-xs text-zinc-500 flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider">{DOC_TYPES.find(t => t.v === f.doc_type)?.label || f.doc_type}</Badge>
+                    auto-detected
+                  </div>
+                </div>
+                <Select value={f.doc_type} onValueChange={v => setFiles(prev => prev.map(x => x.id === f.id ? {...x, doc_type: v} : x))}>
+                  <SelectTrigger className="w-32 h-7 text-xs"><SelectValue/></SelectTrigger>
+                  <SelectContent>{DOC_TYPES.map(t => <SelectItem key={t.v} value={t.v}>{t.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-red-600" onClick={() => remove(f.id)}>
+                  <Trash size={12}/>
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { setFiles([]); setOpen(false); }}>Cancel</Button>
+          <Button onClick={uploadAll} disabled={busy || files.length === 0} data-testid="bulk-upload-btn">
+            {busy ? "Uploading…" : `Upload ${files.length} doc${files.length !== 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

@@ -46,6 +46,7 @@ export const MODULES = [
       { to: "/app/org-chart",     label: "Org Chart",     icon: TreeStructure },
       { to: "/app/org-tree",      label: "Hierarchy map", icon: Stack },
       { to: "/app/branches",      label: "Locations",     icon: Buildings, roles: ROLE_HR },
+      { to: "/app/branch-dashboard", label: "Branch dashboard", icon: ChartBar, roles: [...ROLE_HR, "branch_manager", "sub_manager", "assistant_manager"] },
       { to: "/app/branch-operations", label: "Branch ops",  icon: Receipt, roles: [...ROLE_HR, "branch_manager", "sub_manager", "assistant_manager"] },
       { to: "/app/budgets",       label: "Budgets",       icon: ChartBar, roles: [...ROLE_HR, "branch_manager"] },
       { to: "/app/joining-kit",   label: "Joining kits",  icon: PackageIcon, roles: [...ROLE_HR, "branch_manager"] },

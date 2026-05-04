@@ -178,6 +178,85 @@ async def expiring_documents(
     return rows
 
 
+# ---------- Branch Manager Dashboard summary ----------
+@docs_router.get("/{branch_id}/ops-summary")
+async def branch_ops_summary(branch_id: str, user=Depends(get_current_user)):
+    """Single-shot summary for the Branch Manager command center."""
+    db = get_db()
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(404, "Branch not found")
+    _check_branch_access(user, branch)
+    today = datetime.now(timezone.utc).date()
+    in_7d = (today + timedelta(days=7)).isoformat()
+    in_30d = (today + timedelta(days=30)).isoformat()
+    soon_iso = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    # Expiring docs (next 30d, broken into <=7 / <=30)
+    docs_30d = await db.branch_documents.find(
+        {"branch_id": branch_id, "status": "active",
+         "expiry_date": {"$ne": None, "$lte": in_30d}},
+        {"_id": 0, "base64_data": 0},
+    ).sort("expiry_date", 1).to_list(50)
+    expiring_critical = [d for d in docs_30d if d.get("expiry_date", "") <= in_7d]
+    # Upcoming recurring in next 7d
+    recurring_due = await db.recurring_expense_templates.find(
+        {"branch_id": branch_id, "active": True,
+         "next_run_at": {"$lte": soon_iso}, "mode": {"$ne": "MANUAL_ONE_CLICK"}},
+        {"_id": 0},
+    ).sort("next_run_at", 1).to_list(20)
+    # This month's expense submissions
+    period = today.strftime("%Y-%m")
+    runs_this_month = await db.recurring_expense_runs.count_documents(
+        {"branch_id": branch_id, "period_month": period},
+    )
+    expenses_pending = await db.expense_claims.count_documents(
+        {"company_id": branch["company_id"], "branch_id": branch_id,
+         "status": {"$in": ["submitted", "awaiting_approval"]}},
+    )
+    expenses_approved_month = await db.expense_claims.count_documents(
+        {"company_id": branch["company_id"], "branch_id": branch_id,
+         "status": "approved",
+         "submitted_at": {"$gte": today.replace(day=1).isoformat()}},
+    )
+    # Budget envelopes for current FY
+    from budget_helpers import fy_label_for, utilization
+    fy = fy_label_for()
+    envs = await db.budget_envelopes.find(
+        {"company_id": branch["company_id"], "branch_id": branch_id,
+         "fiscal_year": fy, "status": "active"},
+        {"_id": 0},
+    ).to_list(50)
+    total_budget = sum(e["amount"] for e in envs)
+    total_util = 0.0
+    over_warn = []
+    for e in envs:
+        u = await utilization(db, e)
+        total_util += u
+        pct = (u / e["amount"]) * 100 if e["amount"] else 0.0
+        if pct >= e.get("soft_warn_pct", 80):
+            over_warn.append({"id": e["id"], "name": e["name"], "amount": e["amount"], "utilized": round(u, 2), "pct": round(pct, 1)})
+    return {
+        "branch": {"id": branch_id, "name": branch.get("name"), "city": branch.get("city")},
+        "fiscal_year": fy,
+        "expiring_critical": expiring_critical,       # ≤7d (red)
+        "expiring_soon": [d for d in docs_30d if d.get("expiry_date", "") > in_7d],  # 8..30d
+        "recurring_due_next_7d": recurring_due,
+        "expenses": {
+            "pending_approval": expenses_pending,
+            "approved_this_month": expenses_approved_month,
+            "recurring_runs_this_month": runs_this_month,
+        },
+        "budget": {
+            "envelope_count": len(envs),
+            "total": round(total_budget, 2),
+            "utilized": round(total_util, 2),
+            "remaining": round(total_budget - total_util, 2),
+            "pct": round((total_util / total_budget) * 100, 1) if total_budget else 0.0,
+            "over_threshold": over_warn,
+        },
+    }
+
+
 # ---------- Recurring Expense Scheduler ----------
 rec_router = APIRouter(prefix="/api/recurring-expenses", tags=["recurring-expenses"])
 branch_rec = APIRouter(prefix="/api/branches", tags=["recurring-expenses"])
@@ -271,7 +350,11 @@ async def delete_recurring(tpl_id: str, user=Depends(require_roles(*MGR_ROLES)))
 
 
 async def _create_expense_from_template(db, tpl: dict, period_month: str, triggered_by: str, mode: str) -> dict:
-    """Create an expense_claim from a recurring template. Idempotent on (template_id, period_month)."""
+    """Create an expense_claim from a recurring template. Idempotent on (template_id, period_month).
+
+    AUTO_SUBMIT additionally fires the approval workflow chain so the expense routes
+    Manager → Branch Head → CFO etc. per the configured Approval Matrix.
+    """
     # idempotency check
     existing_run = await db.recurring_expense_runs.find_one(
         {"template_id": tpl["id"], "period_month": period_month}, {"_id": 0},
@@ -306,6 +389,32 @@ async def _create_expense_from_template(db, tpl: dict, period_month: str, trigge
         "recurring_template_id": tpl["id"],
         "created_at": now_iso(), "updated_at": now_iso(),
     }
+    # AUTO_SUBMIT → trigger approval chain
+    if mode == "AUTO_SUBMIT":
+        try:
+            from routers.approvals_routes import create_approval_request
+            ap = await create_approval_request(
+                db,
+                company_id=tpl["company_id"],
+                request_type="expense",
+                requester_user_id=tpl.get("created_by") or "branch-system",
+                requester_name=tpl.get("created_by_name", "Branch Operations"),
+                requester_employee_id=None,
+                title=f"Recurring · {tpl['name']} — {period_month} — ₹{tpl['amount']:,.0f}",
+                details={"expense_id": expense_id, "template_id": tpl["id"],
+                         "period_month": period_month, "amount": tpl["amount"],
+                         "category": tpl["category"], "vendor": tpl.get("vendor_name")},
+                linked_id=expense_id,
+                context={"cost": tpl["amount"], "branch_id": tpl["branch_id"]},
+            )
+            expense["approval_request_id"] = ap["id"]
+        except Exception:
+            # If the approval engine fails, the expense still gets created in submitted state
+            # so it surfaces in the HR queue. We log but don't block.
+            import logging
+            logging.getLogger("hrms").exception(
+                "Failed to create approval request for recurring expense %s", expense_id,
+            )
     await db.expense_claims.insert_one(expense)
     run_doc = {
         "id": uid(),
@@ -316,6 +425,7 @@ async def _create_expense_from_template(db, tpl: dict, period_month: str, trigge
         "period_month": period_month,
         "expense_id": expense_id,
         "expense_status": status,
+        "approval_request_id": expense.get("approval_request_id"),
         "mode": mode,
         "amount": float(tpl["amount"]),
         "currency": tpl.get("currency", "INR"),
