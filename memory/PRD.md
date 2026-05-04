@@ -13,6 +13,31 @@
 
 ## What's been implemented
 
+### May 4, 2026 — Phase 3+2 deepening: integrations across the spine 🔗
+**5 integration gaps closed in one pass.** Tested green by testing_agent (iteration_19, retest_needed=false). Self-tested via curl: ₹500 expense → budget snapshot + approval request created; ₹600K travel pre-flight → "Hard block — would exceed by ₹257,000".
+
+- **(a) Hierarchical approval on every expense path**:
+  - `POST /api/expenses/{id}/submit` now creates an `approval_requests` row via `create_approval_request()` with `request_type=expense`, context `{cost, branch_id}` so the Approval Matrix can route by branch + amount.
+  - `_create_expense_from_template` (recurring) wraps AUTO_SUBMIT in the same approval call; the `approval_request_id` is stored on both `expense_claims` and `recurring_expense_runs`.
+  - `POST /api/procurement/po/{id}/submit-for-approval` does the same with `request_type=purchase_order`.
+- **(b) Budget enforcement engine** (`budget_helpers.py` shared module):
+  - `check_budget(db, ...)` returns the same shape as `/api/budgets/check`. Used by:
+    - `POST /api/expenses` → pre-flight on create. 422 if `block=true` and not admin-overridden via `?override_budget=true`. Snapshot stored in `expense_claims.budget_check`.
+    - `POST /api/procurement/po/{id}/submit-for-approval` → same pattern; snapshot in `purchase_orders.budget_check`.
+  - Utilization = approved/submitted/awaiting_approval expense_claims + non-cancelled POs scoped to branch + (optional) department + cost-center + category.
+  - Most-specific scope match wins; warn at envelope's `soft_warn_pct` (80% default), block at `hard_block_pct` (100% default), `allow_override` flag respected.
+- **(c) Branch Manager command center** at `/app/branch-dashboard`:
+  - `GET /api/branches/{id}/ops-summary` — single-shot endpoint returning critical/soon-expiring docs, recurring fires due in next 7d, this-month expense counts (pending/approved/runs), and budget envelopes over warn-threshold.
+  - 4 KPI tiles (Docs expiring, Recurring due, Budget burn %, Pending approvals) + 4 detail panels + quick CTAs for upload-doc / add-recurring / one-time expense. Branch picker preserved.
+  - Sidebar entry "Branch dashboard" added under People module.
+- **(d) One-time office expense quick form** embedded on `/app/branch-operations` header (button `bops-onetime-btn`):
+  - Live budget pre-flight box (calls `/budgets/check` debounced as user types) — green/amber/red with envelope name + new utilization %.
+  - Submit creates a draft expense_claim then calls `/expenses/{id}/submit` to fire approval chain. Single click, end-to-end.
+- **(e) Bulk doc upload** via drag-drop dropzone (`docs-bulk-btn`):
+  - Multi-file accept (PDFs/images, 5MB cap each), filename-based regex auto-classifier (`bescom-bill.pdf` → utility_bill, `lease-agreement.pdf` → rent_agreement, etc).
+  - Per-file type override dropdown before final upload. Single API call per file in sequence with progress toast.
+- **No new dependencies, no migrations, no data loss.** Existing flows (manual /api/expenses without override, single-doc upload, /api/budgets/check route) all preserved.
+
 ### Apr 30, 2026 — Phases 3 + 4 + 2: Branch Ops, Joining Kits, Budgets 🏢
 **Built in one session, end-to-end backend + frontend with seeded demo data.**
 
