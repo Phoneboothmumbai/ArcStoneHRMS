@@ -13,12 +13,17 @@ export default function EmployeeDashboard() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const [s, m, t] = await Promise.all([
-      api.get("/dashboard/stats"),
-      api.get("/employees/me"),
-      api.get("/attendance/today"),
-    ]);
-    setStats(s.data); setMe(m.data); setToday(t.data);
+    try {
+      const [s, m, t] = await Promise.all([
+        api.get("/dashboard/stats"),
+        api.get("/employees/me"),
+        api.get("/attendance/today"),
+      ]);
+      setStats(s.data); setMe(m.data); setToday(t.data);
+    } catch (e) {
+      // Some calls may fail for accounts without an employee record (admins) — degrade gracefully
+      console.warn("EmployeeDashboard partial load failed:", e?.message || e);
+    }
   };
   useEffect(() => { load(); }, []);
 

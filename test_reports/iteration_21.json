@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 21 — RETEST of the 4 fixes from iteration_20.json. All 4 are verified working. Backend: 6/6 pytest cases pass (comp-off approve 200, comp-off reject 200, declarations/me for admin-without-employee_id 200, declarations/me for admin with explicit FY 200, declarations/me for employee 200, bulk-import dry-run with ctc_annual 200). Frontend: /app/employee mounts cleanly with 0 axios/page errors (was throwing before), all 4 new pages (/app/comp-off, /app/declarations, /app/bulk-import, /app/audit-log) render for HR with 0 console errors, ctc_annual visible in bulk-import optional columns help text and present in downloadable template.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration21_retest.py",
+    "/app/test_reports/pytest/iteration21_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "[OK] comp_off_routes.approve_credit fix is correct: now passes the full `lt` dict to _ensure_balance and uses returned doc['id'] for the balance update. Approve returns {ok:true, balance_id, days_credited} as designed.",
+    "[OK] statutory_routes.my_declaration now returns a 200 placeholder (status=draft, items=[], note='No employee record linked…') for admins without employee_id instead of 400. UI no longer noisy.",
+    "[OK] BulkEmployeeImport.jsx template CSV header now includes ctc_annual (between date_of_joining and manager_email) and the optional-columns help text mentions it. Backend dry-run accepts the column without error.",
+    "[OK] EmployeeDashboard.jsx wraps Promise.all in try/catch with a console.warn fallback; no Uncaught AxiosError on /app/employee mount."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration21_retest.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (5 routes verified clean: /app/employee, /app/comp-off, /app/declarations, /app/bulk-import, /app/audit-log)"},
+  "test_credentials": "admin@hrms.io/Admin@123, hr@acme.io/Hr@12345, manager@acme.io/Manager@123, employee@acme.io/Employee@123",
+  "seed_data_creation": "Comp-off credit rows reason='TEST_iter21_retest *' / 'TEST_iter21_reject *' on employee@acme.io for random past dates each run. Test bulk-import row uses TEST_iter21_<hex>@example.com (dry-run only, not applied — no user created).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 iteration_20 bugs resolved. Login response uses access_token (not token). Comp-off approve returns {ok, balance_id, days_credited}. Declarations/me returns placeholder for accounts without employee_id. Bulk-import template includes ctc_annual column. EmployeeDashboard mounts without errors for any role.",
+  "rca of the issue": "All 4 root causes from iteration 20 confirmed fixed: (1) comp_off_routes.py L136-137 now correctly passes lt dict and unpacks return value as dict; (2) statutory_routes.my_declaration L65-73 returns placeholder for missing employee_id; (3) BulkEmployeeImport.jsx L27 template CSV now includes ctc_annual; (4) EmployeeDashboard.jsx wraps Promise.all in try/catch."
+}

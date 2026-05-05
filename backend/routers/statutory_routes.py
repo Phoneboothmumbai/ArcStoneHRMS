@@ -56,13 +56,21 @@ def _sum_items(items: list[dict]) -> tuple[float, float]:
 @decl_router.get("/me")
 async def my_declaration(financial_year: Optional[str] = None, user=Depends(get_current_user)):
     db = get_db()
-    if not user.get("employee_id"):
-        raise HTTPException(400, "No employee record linked to your user")
     # Determine FY from today (April-March) if not provided
     if not financial_year:
         t = datetime.utcnow()
         y = t.year if t.month >= 4 else t.year - 1
         financial_year = f"{y}-{y+1}"
+    # Admins without a linked employee record get an empty placeholder so the UI can still load
+    if not user.get("employee_id"):
+        return {
+            "company_id": user.get("company_id"),
+            "employee_id": None,
+            "financial_year": financial_year,
+            "items": [], "rent_monthly": 0, "metro_city": False,
+            "tax_regime": "new", "status": "draft",
+            "_note": "No employee record linked to this account.",
+        }
     doc = await db.investment_declarations.find_one(
         {"company_id": user["company_id"], "employee_id": user["employee_id"], "financial_year": financial_year},
         {"_id": 0},

@@ -24,9 +24,9 @@ export default function BulkEmployeeImport() {
   const inputRef = useRef(null);
 
   const downloadTemplate = () => {
-    const csv = `email,name,employee_code,designation,department,branch_code,employee_type,phone,date_of_joining,manager_email
-jane.doe@example.com,Jane Doe,EMP-1001,Senior Engineer,Engineering,BLR-HQ,wfo,+91-9999900000,2026-04-01,manager@acme.io
-john.roe@example.com,John Roe,EMP-1002,Designer,Design,MUM,hybrid,+91-9999900001,2026-04-15,manager@acme.io
+    const csv = `email,name,employee_code,designation,department,branch_code,employee_type,phone,date_of_joining,ctc_annual,manager_email
+jane.doe@example.com,Jane Doe,EMP-1001,Senior Engineer,Engineering,BLR-HQ,wfo,+91-9999900000,2026-04-01,2400000,manager@acme.io
+john.roe@example.com,John Roe,EMP-1002,Designer,Design,MUM,hybrid,+91-9999900001,2026-04-15,1800000,manager@acme.io
 `;
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
@@ -110,14 +110,14 @@ john.roe@example.com,John Roe,EMP-1002,Designer,Design,MUM,hybrid,+91-9999900001
 
       {step === "preview" && report && (
         <SectionCard
-          title={`Step 2 · Preview · ${report.valid_rows ?? 0} valid · ${report.errors?.length ?? 0} errors · ${report.warnings?.length ?? 0} warnings`}
+          title={`Step 2 · Preview · ${(report.valid_rows ?? report.row_count) ?? 0} valid · ${report.errors?.length ?? 0} errors · ${report.warnings?.length ?? 0} warnings`}
           subtitle={report.errors?.length ? "Fix errors and re-upload before applying." : "Looks clean — choose options and apply."}
           testid="section-bulk-preview"
           action={
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="h-9" onClick={reset} data-testid="bi-reset-btn">Re-upload</Button>
               <Button size="sm" className="h-9 gap-1.5" onClick={apply} disabled={busy || (report.errors?.length || 0) > 0} data-testid="bi-apply-btn">
-                <CheckCircle size={14}/> {busy ? "Applying…" : `Apply ${report.valid_rows ?? 0}`}
+                <CheckCircle size={14}/> {busy ? "Applying…" : `Apply ${(report.valid_rows ?? report.new_rows) ?? 0}`}
               </Button>
             </div>
           }>
@@ -160,7 +160,7 @@ john.roe@example.com,John Roe,EMP-1002,Designer,Design,MUM,hybrid,+91-9999900001
           )}
           {(report.errors?.length || 0) === 0 && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-800 flex items-center gap-2">
-              <CheckCircle size={14}/> All {report.valid_rows} rows pass validation. Click <strong>Apply</strong> when ready.
+              <CheckCircle size={14}/> All {report.valid_rows ?? report.row_count} rows pass validation. Click <strong>Apply</strong> when ready.
             </div>
           )}
         </SectionCard>

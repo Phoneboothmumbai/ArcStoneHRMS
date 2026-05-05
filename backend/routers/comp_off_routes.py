@@ -133,7 +133,8 @@ async def approve_credit(cid_id: str, user=Depends(require_roles(
                        can_encash=False, max_continuous_days=5).model_dump()
         await db.leave_types.insert_one(lt)
 
-    bal_id = await _ensure_balance(db, cid, row["employee_id"], lt["id"], year)
+    bal = await _ensure_balance(db, cid, row["employee_id"], lt, year)
+    bal_id = bal["id"]
     await db.leave_balances.update_one(
         {"id": bal_id},
         {"$inc": {"credits_ytd": row["days"]}, "$set": {"updated_at": now_iso()}},
