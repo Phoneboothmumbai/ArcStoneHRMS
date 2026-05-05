@@ -13,6 +13,23 @@
 
 ## What's been implemented
 
+### May 5, 2026 — Iteration 23: Final pre-launch UX cleanup ✅ (ALL P0 + P1 PASS)
+**Go-live blockers cleared.** Testing agent verified 11/11 fix items (iteration_23.json `success_rate.frontend = 100%`).
+
+P0 (HIGH) — all PASS:
+- `/app/employees`: HR-admin only `Add employee` modal (`dir-add-employee-btn`) — name/email/title/dept/branch/role/auto-login.
+- `/app/letters` Templates tab: per-row `Generate` button (`tmpl-use-<id>`) opens generate modal with template pre-selected.
+- `/app/visitors`: re-confirmed `Check in visitor` CTA opens modal — Iteration 22 selector mismatch (custom div vs role=dialog).
+- `/app/resource-booking`: re-confirmed `New booking` CTA opens modal — same selector mismatch.
+- `/app/companies` and `/app/resellers`: rows are now clickable → drill-down detail pages (`CompanyDetail.jsx`, `ResellerDetail.jsx`).
+- `/app/expenses`: role-guard on Approve/Reject — employees see 0 admin buttons, HR still sees full controls.
+- 404 catch-all inside `/app/*`: `NotFound.jsx` rendered inside AppShell instead of public marketing Landing.
+- Backend noise endpoints: `GET /api/admin/employment-class/{config,stats}` return 200 + `scope_required:true` for super_admin without tenant; `GET /api/posh/committee` returns 200 (empty) for non-HR.
+
+P1 (MED) — all PASS:
+- Super-admin sidebar expanded: Platform, Resellers, Companies, **Employees, Bulk import, Employment classes, Audit log**, Modules.
+- Reseller sidebar: Overview, My Companies, **Commissions, Billing, Pricing** — last three render `ResellerStub.jsx` "Coming soon" page until Stripe billing ships.
+
 ### May 5, 2026 — Pre-launch wiring audit + 4 orphaned features wired ✅
 **Go-live readiness sweep.** Tested green by testing_agent (iteration_20 exposed 4 issues, iteration_21 retest 6/6 pass).
 
