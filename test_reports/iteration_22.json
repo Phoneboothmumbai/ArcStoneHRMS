@@ -1,0 +1,67 @@
+{
+  "summary": "Iteration 22 — FINAL PRE-LAUNCH CLICK-BY-CLICK AUDIT across all 4 personas (super_admin, reseller, hr_admin, employee). Logged in as each, walked every accessible sidebar entry (60+ routes visited end-to-end), and clicked every primary CTA / row action to verify it actually DOES something (opens modal, triggers API, or navigates). 50+ pages render with 0 console errors; however, SEVEN non-functional buttons / missing CTAs and ONE permission leak were found that are launch-blockers, plus three medium-severity gaps.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/employment-class/stats and /config", "issue": "Returns 400 'Company scope required' when called by super_admin (who has no tenant). UI handles it gracefully with a 'Company scope required' empty state, but the 400 pollutes console/network. Recommend: return 200 with empty payload + scope_required:true flag, or don't fire the request when tenantId is null."},
+      {"endpoint": "GET /api/posh/committee", "issue": "Returns 403 twice to employee persona on /app/posh mount. Page still renders. Either suppress the fetch for non-committee roles or have the endpoint return 200 with committee:null."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Employees directory", "issue": "No 'Add employee' CTA visible to HR admin on /app/employees. Feature listed in test plan and core HR workflow but UI button is absent. HR admin cannot create a single employee from directory (only bulk-import route available).", "selector": "[data-testid*='add-employee'] / button:has-text('Add employee')", "priority": "HIGH", "persona": "hr_admin", "page": "/app/employees", "expected": "An 'Add employee' button that opens a create-employee modal"},
+      {"component": "Letters — Generate (per-row)", "issue": "Clicking the 'Generate' button on a template row does NOTHING — no modal opens, no API call fires, no toast. Button is dead.", "selector": "button:has-text('Generate')", "priority": "HIGH", "persona": "hr_admin", "page": "/app/letters", "expected": "Open a 'Generate letter' modal → choose employee → preview/download PDF"},
+      {"component": "Visitor management — Check in visitor", "issue": "Primary CTA 'Check in visitor' click produces no modal, no API call, no navigation. Button is dead.", "selector": "button:has-text('Check in visitor')", "priority": "HIGH", "persona": "hr_admin", "page": "/app/visitors", "expected": "Open a modal to register / check in visitor"},
+      {"component": "Resource booking — New booking", "issue": "Primary CTA 'New booking' click produces no modal, no API call, no navigation. Button is dead.", "selector": "button:has-text('New booking')", "priority": "HIGH", "persona": "hr_admin", "page": "/app/resource-booking", "expected": "Open a modal to book a resource with time/room pickers"},
+      {"component": "Companies list — row click", "issue": "Clicking a company row (e.g. 'ACME Global') on /app/companies does NOTHING — no detail page navigation, no drawer, no modal. Same problem for reseller rows on /app/resellers.", "selector": "table tr / company-row", "priority": "HIGH", "persona": "super_admin", "page": "/app/companies and /app/resellers", "expected": "Navigate to /app/companies/:id (or open side-drawer) showing tenant detail"},
+      {"component": "404 / unknown-route handling", "issue": "Visiting an authenticated user to /app/this-does-not-exist renders the PUBLIC marketing Landing page (hero 'The HRMS built for the multi-country enterprise'). Breaks the app shell and confuses the signed-in user.", "selector": "router catch-all", "priority": "HIGH", "persona": "all", "page": "/app/<anything-unknown>", "expected": "Show a friendly 404 inside the app shell with a 'Back to dashboard' link, OR redirect to role-appropriate landing"},
+      {"component": "Expenses — Approve/Reject leak", "issue": "Employee persona on /app/expenses sees 'Approve' and 'Reject' buttons on the claims list (visible in sidebar scan). Employees must never see admin actions. Permission leak.", "selector": "button:has-text('Approve'), button:has-text('Reject')", "priority": "HIGH", "persona": "employee", "page": "/app/expenses", "expected": "Hide approve/reject for role != manager/company_admin; show only 'New claim' + own rows with 'Voucher PDF' for approved"},
+      {"component": "Super Admin sidebar coverage", "issue": "Super admin sidebar only exposes 5 entries (Platform, Resellers, Companies, Modules, Help). Routes that are role=super_admin in moduleRegistry (employment-classes, audit-log, bulk-import, employees directory) are NOT reachable from the SA sidebar — user must type the URL manually.", "selector": "ROLE_WORKSPACES.super_admin in moduleRegistry.js", "priority": "MEDIUM", "persona": "super_admin", "page": "sidebar", "expected": "Either add these entries to ROLE_WORKSPACES.super_admin, or expose a 'Tenant tools' section when SA impersonates a company"},
+      {"component": "Reseller workspace — commissions/billing/pricing", "issue": "Reseller sidebar only shows Overview + My Companies + Help. The user request explicitly asked to verify 'commissions / billing / pricing' buttons — these pages/buttons do NOT exist for reseller persona. Either flag as 'coming soon' or build before launch.", "selector": "ROLE_WORKSPACES.reseller", "priority": "MEDIUM", "persona": "reseller", "page": "/app/reseller", "expected": "Add commission/billing/pricing navigation or document these as post-launch features"}
+    ],
+    "integration_issues": [
+      {"flow": "Letters generation", "issue": "Template rows have Generate button but no handler wired. Cannot produce PDF/preview.", "affected_selectors": ["/app/letters button:has-text('Generate')"]},
+      {"flow": "Visitor check-in", "issue": "CTA has no onClick handler or modal wiring.", "affected_selectors": ["/app/visitors button:has-text('Check in visitor')"]},
+      {"flow": "Resource booking creation", "issue": "CTA has no onClick handler or modal wiring.", "affected_selectors": ["/app/resource-booking button:has-text('New booking')"]},
+      {"flow": "Super-admin → company/reseller detail", "issue": "List rows lack onClick/navigate. Cannot drill into tenant configuration.", "affected_selectors": ["/app/companies row", "/app/resellers row"]}
+    ],
+    "design_issues": [
+      {"screen": "Header notification badge", "issues": ["'99+' on bell icon for employee is permanent — suggests notifications auto-mark-read is not hooked up, or employee truly has hundreds of unread. Verify seed vs display logic."]},
+      {"screen": "/app/employment-classes for super_admin", "issues": ["Shows 'Company scope required' empty state but still triggers two 400 API calls on mount — should gate request with tenantId check."]}
+    ]
+  },
+  "pages_verified_working": {
+    "super_admin": ["/app/platform", "/app/companies (list)", "/app/resellers (list)", "/app/modules (tabs+toggle)", "/app/audit-log", "/app/bulk-import", "/app/notifications", "/app/help", "/app/employees (directory)"],
+    "reseller": ["/app/reseller (overview)", "/app/companies (Onboard company modal works)"],
+    "hr_admin": ["/app/hr", "/app/hr-alerts", "/app/employees", "/app/org-chart", "/app/org-tree", "/app/branches (Add location modal)", "/app/branch-dashboard", "/app/branch-operations", "/app/budgets (New envelope modal)", "/app/joining-kit (New issuance modal)", "/app/onboarding (Start onboarding modal)", "/app/offboarding", "/app/approvals", "/app/workflows (New workflow modal)", "/app/employment-classes", "/app/audit-log", "/app/company-settings", "/app/attendance-admin", "/app/leave-admin", "/app/leave-planner", "/app/live-tracking", "/app/payroll", "/app/payroll-runs", "/app/fnf-loans", "/app/loan-requests", "/app/compliance", "/app/insurance", "/app/expenses (New claim modal)", "/app/assets (New asset modal)", "/app/policies (New policy modal)", "/app/procurement", "/app/procurement/vendors", "/app/procurement/rfqs", "/app/procurement/purchase-orders", "/app/recruitment", "/app/recruitment/requisitions (New requisition modal)", "/app/recruitment/offers", "/app/reports", "/app/reports/compensation", "/app/reports/builder (fields list renders)", "/app/helpdesk (New ticket modal)", "/app/helpdesk/categories", "/app/posh", "/app/billing", "/app/performance/goals (New goal modal)", "/app/performance/reviews", "/app/performance/cycles", "/app/performance/nine-box", "/app/performance/pips", "/app/requests"],
+    "employee": ["/app/employee (Check in)", "/app/me (all profile tabs visible)", "/app/attendance", "/app/leave (Apply leave modal)", "/app/comp-off (Request comp-off)", "/app/expenses (New claim modal — BUT sees Approve/Reject too)", "/app/declarations", "/app/my-submissions", "/app/notifications (Mark all read, Preferences)", "/app/help", "/app/policies (Read buttons)", "/app/requests (New request)", "/app/posh (File complaint — ignoring 403s)", "/app/helpdesk (New ticket)"]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "HIGH: Wire 'Add employee' CTA on /app/employees (hr_admin)",
+    "HIGH: Wire 'Generate' onClick on /app/letters template rows (open modal → PDF preview)",
+    "HIGH: Wire 'Check in visitor' CTA on /app/visitors (open check-in modal)",
+    "HIGH: Wire 'New booking' CTA on /app/resource-booking (open booking modal)",
+    "HIGH: Make company rows (/app/companies) and reseller rows (/app/resellers) clickable → open detail page or drawer",
+    "HIGH: Hide 'Approve' / 'Reject' buttons from employee role on /app/expenses (permission leak)",
+    "HIGH: Add an in-app 404 route so /app/<unknown> does NOT render the marketing Landing page",
+    "MED: Expand ROLE_WORKSPACES.super_admin sidebar to include Employment classes / Audit log / Bulk import / Employees shortcuts (or document that SA must impersonate a tenant)",
+    "MED: Decide fate of reseller commissions / billing / pricing — build or flag 'coming soon'",
+    "MED: Suppress GET /api/admin/employment-class/stats+config when tenantId is null (OR return 200 empty); suppress GET /api/posh/committee for non-committee employees"
+  ],
+  "critical_code_review_comments": [
+    "Multiple primary CTAs across Letters, Visitors and ResourceBooking are rendered without onClick handlers — a lint rule (or simple grep for '<button' lacking onClick) would have caught these.",
+    "Super-admin role gets role-allowlisted nav items defined in MODULES (roles:['super_admin','company_admin']) but those MODULES are never shown because SA uses ROLE_WORKSPACES (mini workspace) — the two nav systems contradict each other.",
+    "Router likely has no catch-all route; /app/* currently falls through to the public Landing component, bypassing the authenticated layout.",
+    "Employee expenses page appears to render approve/reject actions based on row.status ('submitted') without a role check — add a role guard before rendering admin actions.",
+    "Both employment-class/stats and employment-class/config endpoints should accept super_admin requests with no tenant header and return an empty payload (200) instead of a 400; otherwise UIs must feature-flag the fetch."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "~95% (2 400/403 noise endpoints flagged)", "frontend": "~88% (50+ pages render clean; 7 HIGH button/flow defects + 2 MED gaps across 4 personas)"},
+  "test_credentials": "admin@hrms.io/Admin@123, reseller@demo.io/Reseller@123, hr@acme.io/Hr@12345, manager@acme.io/Manager@123, employee@acme.io/Employee@123",
+  "seed_data_creation": "No seed data created — this run only enumerates existing UI; modals were opened then closed via Esc without submitting.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Scope covered: login flow ✓ for all 4 roles; 60+ routes walked; primary CTAs clicked to verify modal/API/navigation. Scope NOT fully covered due to scale: (a) end-to-end submission of each modal form (e.g. actually saving a new branch/budget/ticket etc — I confirmed the modal opens, not that save persists — recommend next agent to test the top 5 create-flows end-to-end), (b) row-level edit/delete buttons on every list, (c) mobile viewport responsiveness, (d) manager@acme.io persona sidebar walk, (e) module-switcher between workspaces. The 4 newest pages (CompOff, InvestmentDeclarations, BulkEmployeeImport, AuditLog) confirmed rendering with no console errors as in iteration 21.",
+  "rca of the issue": "The 7 HIGH bugs group into three categories: (1) missing onClick handlers on primary CTAs (Letters-Generate, Visitors-CheckIn, ResourceBooking-NewBooking) — classic 'button rendered, handler forgotten'; (2) missing row-click navigation (Companies/Resellers list rows have no Link/onClick wrapper) — likely the developer expected a separate detail page that never got wired to the router; (3) missing role guards (Employee seeing Approve/Reject) + missing catch-all 404 route — both router/permission plumbing gaps. All are fixable in under a day before launch."
+}
