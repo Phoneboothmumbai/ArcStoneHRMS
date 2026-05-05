@@ -1,0 +1,65 @@
+{
+  "summary": "Iteration 20 pre-launch wiring audit (HRMS go-live). Backend smoke: 16/17 pytest cases pass for the 4 new feature surfaces (Comp-Off, Investment Declarations, Bulk Employee Import, Audit Log) plus login smoke for 4 roles. Frontend: all 4 new pages render with correct data-testids, 56-route sweep is clean except 1 uncaught AxiosError on /app/employee, RBAC gating verified for employee + manager + hr, header links (bell → /app/notifications, help → /app/help) work.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/comp-off/credits/{id}/approve",
+        "issue": "Returns 500 with 'TypeError: string indices must be integers, not str'. Bug in comp_off_routes.py line 136: call is `_ensure_balance(db, cid, row['employee_id'], lt['id'], year)` but the signature in leave_admin_routes.py line 147 is `_ensure_balance(db, company_id, emp_id, lt: dict, year)` — caller passes lt['id'] (a string) where a dict is expected, and the helper then tries lt['id'] on the string. Also the call treats the return value as a string (`bal_id = await ...`) then uses `bal_id` in `update_one({'id': bal_id})`, but the helper returns the balance DOCUMENT (dict). Two-part fix: (1) pass `lt` dict, (2) use `bal_id = (await _ensure_balance(...))['id']`. Approve flow is currently completely broken — this is a launch blocker for Comp-Off.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/employees/bulk-import/dry-run",
+        "issue": "Response shape uses {row_count, new_rows, duplicate_rows, errors, warnings} — NOT the {valid_rows, errors, warnings} shape documented in the review request. Not a bug, but: (a) update the problem-statement docs, (b) the frontend BulkEmployeeImport.jsx must read the same keys. Also, the CSV template has 10 columns (email, name, employee_code, designation, department, branch_code, employee_type, phone, date_of_joining, manager_email), not 11 as stated in the review request — `ctc_annual` is documented in the backend OPTIONAL list + help text but is NOT in the downloadable template CSV header. Recommend adding `ctc_annual` to the template so users don't have to hand-edit."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "EmployeeDashboard (/app/employee)",
+        "issue": "Uncaught AxiosError fires during mount (visible in page-error listener). Page still renders but an API call is rejecting without a catch handler, polluting the console and blocking any error-boundary work later. Does NOT crash the UI — just a hygiene issue. Reproduce: login as any role and visit /app/employee directly.",
+        "selector": "/app/employee",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Investment Declarations initial load",
+        "issue": "GET /api/declarations/me?financial_year=<fy> returns 400 for FY values that have never existed in the DB — frontend swallows via catch and falls back to empty state, which is fine UX-wise but noisy in the console. Backend should arguably auto-create a draft (as the docstring claims) or return 200 with empty items rather than 400.",
+        "affected_selectors": ["decl-fy-select"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration20_prelaunch_audit.py",
+    "/app/test_reports/pytest/iteration20_results.xml"
+  ],
+  "action_items": [
+    "[CRITICAL / LAUNCH BLOCKER] Fix POST /api/comp-off/credits/{id}/approve in comp_off_routes.py: pass the full `lt` dict (not lt['id']) to `_ensure_balance`, and use returned `doc['id']` for the balance update. Currently every approve attempt 500s. Regression test is already in /app/backend/tests/test_iteration20_prelaunch_audit.py::TestCompOff::test_request_and_approve_flow — will pass once fixed.",
+    "[MEDIUM] Catch the AxiosError thrown on /app/employee mount (wrap the failing call in try/catch or add `.catch(...)` — currently polluting pageerror listener).",
+    "[LOW] Add `ctc_annual` column to the bulk-import template CSV header (BulkEmployeeImport.jsx line ~27) — backend accepts it but the downloaded template doesn't include it.",
+    "[LOW] /api/declarations/me should return 200 with an empty-items draft for any valid FY rather than 400 — aligns with the 'auto-creates draft' docstring contract."
+  ],
+  "critical_code_review_comments": [
+    "[BUG] comp_off_routes.approve_credit — double bug: wrong arg to _ensure_balance (string vs dict) AND wrong return-type handling (uses result as id string but helper returns dict). Has never worked since this route was written.",
+    "[OK] All 4 new pages have proper data-testids (cmp-tab-mine, cmp-tab-queue, cmp-new-btn, decl-fy-select, decl-regime-select, decl-add-btn, decl-rent, decl-save-btn, decl-submit-btn, bi-dropzone, bi-template-btn, audit-search, audit-action-select) as spec'd.",
+    "[OK] RBAC gates hold for employee and manager — /app/audit-log, /app/bulk-import, /app/employment-classes, /app/budgets all redirect away from employee; /app/audit-log and /app/bulk-import block for branch_manager.",
+    "[OK] Investment Declarations round-trips items[] + rent_monthly + tax_regime correctly (POST then GET persists 2 items + ₹22K rent + old regime). Submit endpoint transitions status to 'submitted'.",
+    "[OK] Bulk-import dry-run correctly returns errors for missing required columns and accepts the happy-path CSV matching the template.",
+    "[OK] Audit events endpoint returns 200 for HR with limit=200 and 403 for employee.",
+    "[INFO] 56-route sweep clean aside from the /app/employee AxiosError — no React runtime-error overlays anywhere."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration20_prelaunch_audit.py"
+  ],
+  "success_rate": {"backend": "94% (16/17 — 1 CRITICAL comp-off approve bug)", "frontend": "99% (55/56 routes clean + all 4 new pages + header + RBAC)"},
+  "test_credentials": "admin@hrms.io/Admin@123, hr@acme.io/Hr@12345, manager@acme.io/Manager@123, employee@acme.io/Employee@123",
+  "seed_data_creation": "Comp-off credit rows (reason='TEST_iter20 *') created on employee@acme.io for random past dates each run. Declarations TEST_LIC #9999 + TEST_Health ins saved on employee@acme.io for FY2026-2027. No cleanup — all prefixed TEST_ and harmless.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The comp-off approve bug is deterministic and fully reproducible via test_request_and_approve_flow. Bulk-import response shape is {row_count, new_rows, duplicate_rows, errors, warnings} — do NOT assert valid_rows. Declarations endpoint uses items[{section,label,declared_amount,proof_attached}] + rent_monthly + tax_regime + financial_year. Audit endpoint takes query params limit/event/event_prefix/actor_id (UI maps 'q'→actor_id and 'action'→event). The frontend FY default can be different from seeded FY — this causes a 400 on initial declarations GET but is swallowed and not user-visible.",
+  "rca of the issue": "Comp-off approve 500 root cause: in /app/backend/routers/comp_off_routes.py line 136, the call `await _ensure_balance(db, cid, row['employee_id'], lt['id'], year)` passes `lt['id']` (a string) as the 4th positional arg, but the helper in leave_admin_routes.py line 147 expects the full `lt` dict and does `lt['id']` internally → Python raises `TypeError: string indices must be integers, not 'str'` because you can't subscript a string with another string. Additionally, the return value is a dict but caller assigns it to `bal_id` and uses it in `update_one({'id': bal_id})` which would then mismatch even if arg was fixed. Mitigation: change to `bal = await _ensure_balance(db, cid, row['employee_id'], lt, year); bal_id = bal['id']`."
+}

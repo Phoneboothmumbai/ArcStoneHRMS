@@ -8,7 +8,7 @@ import {
   PackageIcon, Storefront, Buildings, ShieldCheck, FlowArrow, Stack, Receipt,
   UserCirclePlus, UserCircleMinus, UserCircle, CurrencyInr, Calendar, Handshake,
   BookBookmark, FileText, Laptop, AirplaneTilt, Gear, ChartBar, Briefcase, Target, Lock, Bell,
-  MapPin, IdentificationCard,
+  MapPin, IdentificationCard, UploadSimple,
 } from "@phosphor-icons/react";
 
 // Helper role constants
@@ -43,6 +43,7 @@ export const MODULES = [
       { to: "/app/hr",            label: "Overview",      icon: HouseLine },
       { to: "/app/hr-alerts",     label: "HR Alerts",     icon: Bell, roles: ROLE_HR },
       { to: "/app/employees",     label: "Directory",     icon: UsersThree },
+      { to: "/app/bulk-import",   label: "Bulk import",   icon: UploadSimple, roles: ["super_admin","company_admin","country_head"] },
       { to: "/app/org-chart",     label: "Org Chart",     icon: TreeStructure },
       { to: "/app/org-tree",      label: "Hierarchy map", icon: Stack },
       { to: "/app/branches",      label: "Locations",     icon: Buildings, roles: ROLE_HR },
@@ -55,6 +56,7 @@ export const MODULES = [
       { to: "/app/approvals",     label: "Approvals",     icon: ShieldCheck },
       { to: "/app/workflows",     label: "Workflows",     icon: FlowArrow },
       { to: "/app/employment-classes", label: "Employment classes", icon: IdentificationCard, roles: ["super_admin","company_admin"] },
+      { to: "/app/audit-log",     label: "Audit log",     icon: ShieldCheck, roles: ["super_admin","company_admin"] },
       { to: "/app/company-settings", label: "Company settings", icon: Gear, roles: ROLE_HR },
     ],
   },
@@ -70,6 +72,7 @@ export const MODULES = [
     items: [
       { to: "/app/attendance",        label: "My Attendance",  icon: ClockClockwise },
       { to: "/app/leave",             label: "My Leave",       icon: CalendarCheck },
+      { to: "/app/comp-off",          label: "Comp-Off",       icon: ClockClockwise },
       { to: "/app/attendance-admin",  label: "Attendance Admin", icon: ClockClockwise, roles: ROLE_HR },
       { to: "/app/leave-admin",       label: "Leave Admin",      icon: CalendarCheck,   roles: ROLE_HR },
       { to: "/app/leave-planner",     label: "Team leave planner", icon: CalendarCheck, roles: ROLE_MANAGER },
@@ -88,6 +91,7 @@ export const MODULES = [
     description: "India payroll: structures, monthly runs, statutory exports, F&F, loans.",
     items: [
       { to: "/app/payroll",        label: "Compensation",  icon: CurrencyInr },
+      { to: "/app/declarations",   label: "Investment Declarations", icon: Receipt },
       { to: "/app/payroll-runs",   label: "Payroll Runs",  icon: Calendar },
       { to: "/app/fnf-loans",      label: "F&F & Loans",   icon: Handshake },
       { to: "/app/loan-requests",  label: "Loan Requests", icon: Handshake },

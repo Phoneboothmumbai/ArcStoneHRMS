@@ -65,6 +65,10 @@ import BranchOperations from "./pages/BranchOperations";
 import BranchDashboard from "./pages/BranchDashboard";
 import Budgets from "./pages/Budgets";
 import JoiningKit from "./pages/JoiningKit";
+import CompOff from "./pages/CompOff";
+import InvestmentDeclarations from "./pages/InvestmentDeclarations";
+import BulkEmployeeImport from "./pages/BulkEmployeeImport";
+import AuditLog from "./pages/AuditLog";
 import { ModulesProvider } from "./context/ModulesContext";
 import { EmploymentClassProvider } from "./context/EmploymentClassContext";
 
@@ -174,6 +178,10 @@ function App() {
           <Route path="/app/branch-dashboard" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager","sub_manager","assistant_manager"]}><BranchDashboard /></ProtectedRoute>} />
           <Route path="/app/budgets" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><Budgets /></ProtectedRoute>} />
           <Route path="/app/joining-kit" element={<ProtectedRoute roles={["super_admin","company_admin","country_head","region_head","branch_manager"]}><JoiningKit /></ProtectedRoute>} />
+          <Route path="/app/comp-off" element={<ProtectedRoute><CompOff /></ProtectedRoute>} />
+          <Route path="/app/declarations" element={<ProtectedRoute><InvestmentDeclarations /></ProtectedRoute>} />
+          <Route path="/app/bulk-import" element={<ProtectedRoute roles={["super_admin","company_admin","country_head"]}><BulkEmployeeImport /></ProtectedRoute>} />
+          <Route path="/app/audit-log" element={<ProtectedRoute roles={["super_admin","company_admin","reseller"]}><AuditLog /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
