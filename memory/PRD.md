@@ -13,6 +13,25 @@
 
 ## What's been implemented
 
+### May 5, 2026 — Pre-launch wiring audit + 4 orphaned features wired ✅
+**Go-live readiness sweep.** Tested green by testing_agent (iteration_20 exposed 4 issues, iteration_21 retest 6/6 pass).
+
+- **Static audit** — programmatic cross-check of:
+  - 64 sidebar links → 75 React Router routes → 0 dead links found
+  - 251 backend endpoints → 8 routers had ZERO frontend usage
+  - 4 confirmed orphaned features identified (had backend, no UI)
+- **4 new pages built** for previously orphaned APIs:
+  - `/app/comp-off` (`pages/CompOff.jsx`) — employee comp-off requests + admin approval queue. Wires to `/api/comp-off/credits`. Sidebar entry under Time & Leave.
+  - `/app/declarations` (`pages/InvestmentDeclarations.jsx`) — multi-section investment declarations (80C, 80D, HRA, etc.) with FY selector, draft/save/submit, item add/remove. Wires to `/api/declarations/me`. Sidebar entry under Payroll.
+  - `/app/bulk-import` (`pages/BulkEmployeeImport.jsx`) — drag-drop CSV with dry-run preview (errors/warnings highlighted), 2 toggles (skip-existing, create-user-accounts), apply-only-when-clean. Multipart upload to `/api/employees/bulk-import/dry-run|apply`. Template download. Sidebar entry under People.
+  - `/app/audit-log` (`pages/AuditLog.jsx`) — read-only event viewer with action-prefix filter + actor search, color-coded badges (create=green, update=amber, delete=red, login=violet). Sidebar entry under People (admin-only).
+- **4 fixes from testing_agent iteration_20**:
+  - **CRITICAL**: `_ensure_balance` returns dict not id — comp-off approve was 500ing. Now `bal = _ensure_balance(...); bal_id = bal['id']`.
+  - `bulk-import` template missing `ctc_annual` column — added.
+  - `GET /api/declarations/me` 400-ed for users without employee_id (admins) — now returns empty placeholder so the page mounts.
+  - `EmployeeDashboard.jsx` raw `Promise.all` rejected on any partial failure — wrapped in try/catch.
+- **Outcome**: Every backend feature now has a UI surface. Every sidebar link goes somewhere live. RBAC verified for 3 roles (super_admin, company_admin, manager, employee).
+
 ### May 4, 2026 — Phase 3+2 deepening: integrations across the spine 🔗
 **5 integration gaps closed in one pass.** Tested green by testing_agent (iteration_19, retest_needed=false). Self-tested via curl: ₹500 expense → budget snapshot + approval request created; ₹600K travel pre-flight → "Hard block — would exceed by ₹257,000".
 
