@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppShell, { StatCard, SectionCard } from "../components/AppShell";
 import { api, formatApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -11,6 +12,7 @@ import { Plus } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 
 export default function Companies() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -76,7 +78,7 @@ export default function Companies() {
           </TableHeader>
           <TableBody>
             {rows.map((c) => (
-              <TableRow key={c.id} data-testid={`crow-${c.id}`}>
+              <TableRow key={c.id} data-testid={`crow-${c.id}`} className="cursor-pointer hover:bg-zinc-50" onClick={() => navigate(`/app/companies/${c.id}`)}>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell><Badge variant="outline" className="uppercase text-[10px] tracking-wider">{c.plan}</Badge></TableCell>
                 <TableCell><span className="text-[10px] uppercase tracking-wider bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-full">{c.status}</span></TableCell>

@@ -6,8 +6,13 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { MagnifyingGlass, GridFour, ListBullets, EnvelopeSimple, Phone, Buildings, Stack, UserCircle, Printer } from "@phosphor-icons/react";
+import { MagnifyingGlass, GridFour, ListBullets, EnvelopeSimple, Phone, Buildings, Stack, UserCircle, Printer, Plus } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { Label } from "../components/ui/label";
+
+const HR_ROLES = new Set(["super_admin", "company_admin", "country_head", "region_head", "branch_manager"]);
 
 const EMP_CLASS_LABELS = {
   on_roll:              { label: "On-Roll",    cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
@@ -17,12 +22,15 @@ const EMP_CLASS_LABELS = {
 };
 
 export default function Employees() {
+  const { user } = useAuth();
+  const canAddEmployee = HR_ROLES.has(user?.role);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [deptId, setDeptId] = useState("all");
   const [branchId, setBranchId] = useState("all");
+  const [showAdd, setShowAdd] = useState(false);
   const [employmentClass, setEmploymentClass] = useState(() => {
     try {
       const sp = new URLSearchParams(window.location.search);
@@ -128,12 +136,136 @@ export default function Employees() {
               }}>
               <Printer size={14}/> Print PDF
             </Button>
+            {canAddEmployee && (
+              <Button size="sm" className="gap-1.5 h-9 bg-zinc-950 hover:bg-zinc-800" onClick={() => setShowAdd(true)} data-testid="dir-add-employee-btn">
+                <Plus size={14} weight="bold"/> Add employee
+              </Button>
+            )}
           </div>
         }
       >
         {view === "table" ? <TableView rows={rows}/> : <CardsView rows={rows}/>}
       </SectionCard>
+      {showAdd && <AddEmployeeModal departments={departments} branches={branches} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load(); }}/>}
     </AppShell>
+  );
+}
+
+function AddEmployeeModal({ departments, branches, onClose, onCreated }) {
+  const [f, setF] = useState({
+    name: "", email: "", phone: "", job_title: "",
+    employee_type: "wfo", employment_class: "on_roll",
+    department_id: "", branch_id: "",
+    role_in_company: "employee",
+    create_login: true, password: "Welcome@123",
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
+
+  const submit = async () => {
+    if (!f.name.trim() || !f.email.trim() || !f.job_title.trim()) {
+      return toast.error("Name, email and job title are required");
+    }
+    setBusy(true);
+    try {
+      const payload = { ...f };
+      if (!payload.department_id) delete payload.department_id;
+      if (!payload.branch_id) delete payload.branch_id;
+      if (!payload.create_login) delete payload.password;
+      await api.post("/employees", payload);
+      toast.success(`${f.name} added.${f.create_login ? " Login created." : ""}`);
+      onCreated?.();
+    } catch (e) {
+      toast.error(formatApiError(e?.response?.data?.detail) || "Failed to add employee");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose?.(); }}>
+      <DialogContent className="sm:max-w-2xl" data-testid="dir-add-modal">
+        <DialogHeader><DialogTitle>Add a new employee</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-3 max-h-[65vh] overflow-y-auto pr-1">
+          <Field label="Full name *"><Input value={f.name} onChange={e => set("name", e.target.value)} placeholder="Riya Sharma" data-testid="dir-add-name"/></Field>
+          <Field label="Work email *"><Input type="email" value={f.email} onChange={e => set("email", e.target.value)} placeholder="riya@acme.io" data-testid="dir-add-email"/></Field>
+          <Field label="Phone"><Input value={f.phone} onChange={e => set("phone", e.target.value)} placeholder="+91…" data-testid="dir-add-phone"/></Field>
+          <Field label="Job title *"><Input value={f.job_title} onChange={e => set("job_title", e.target.value)} placeholder="Senior Engineer" data-testid="dir-add-title"/></Field>
+          <Field label="Department">
+            <Select value={f.department_id || "_none"} onValueChange={v => set("department_id", v === "_none" ? "" : v)}>
+              <SelectTrigger data-testid="dir-add-dept"><SelectValue placeholder="Select"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Unassigned</SelectItem>
+                {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Branch / Location">
+            <Select value={f.branch_id || "_none"} onValueChange={v => set("branch_id", v === "_none" ? "" : v)}>
+              <SelectTrigger data-testid="dir-add-branch"><SelectValue placeholder="Select"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Unassigned</SelectItem>
+                {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}{b.is_head_office ? " · HQ" : ""}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Work mode">
+            <Select value={f.employee_type} onValueChange={v => set("employee_type", v)}>
+              <SelectTrigger data-testid="dir-add-mode"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="wfo">WFO</SelectItem>
+                <SelectItem value="wfh">WFH</SelectItem>
+                <SelectItem value="field">Field</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Employment class">
+            <Select value={f.employment_class} onValueChange={v => set("employment_class", v)}>
+              <SelectTrigger data-testid="dir-add-class"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="on_roll">On-Roll</SelectItem>
+                <SelectItem value="off_roll_consultant">Consultant</SelectItem>
+                <SelectItem value="off_roll_contractor">Contractor</SelectItem>
+                <SelectItem value="intern">Intern</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Role in company">
+            <Select value={f.role_in_company} onValueChange={v => set("role_in_company", v)}>
+              <SelectTrigger data-testid="dir-add-role"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="employee">Employee</SelectItem>
+                <SelectItem value="branch_manager">Branch manager</SelectItem>
+                <SelectItem value="sub_manager">Sub manager</SelectItem>
+                <SelectItem value="assistant_manager">Assistant manager</SelectItem>
+                <SelectItem value="region_head">Region head</SelectItem>
+                <SelectItem value="country_head">Country head</SelectItem>
+                <SelectItem value="company_admin">Company admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Temporary password">
+            <Input type="text" value={f.password} onChange={e => set("password", e.target.value)} disabled={!f.create_login} data-testid="dir-add-pwd"/>
+            <label className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
+              <input type="checkbox" checked={f.create_login} onChange={e => set("create_login", e.target.checked)} data-testid="dir-add-create-login"/>
+              Auto-create login for this employee
+            </label>
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button className="bg-zinc-950 hover:bg-zinc-800" onClick={submit} disabled={busy} data-testid="dir-add-submit">{busy ? "Adding…" : "Add employee"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <Label className="tiny-label mb-1 block">{label}</Label>
+      {children}
+    </div>
   );
 }
 

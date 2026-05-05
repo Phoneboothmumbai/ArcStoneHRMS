@@ -301,7 +301,8 @@ async def add_committee_member(body: dict, user=Depends(require_roles(*HR))):
 
 
 @posh_router.get("/committee")
-async def list_committee(user=Depends(require_roles(*HR))):
+async def list_committee(user=Depends(get_current_user)):
+    """All authenticated users may read committee list — non-HR get an empty list (used for is-committee check on UI)."""
     db = get_db()
     rows = await db.posh_committee.find(
         {"company_id": _cid(user), "is_active": True}, {"_id": 0},

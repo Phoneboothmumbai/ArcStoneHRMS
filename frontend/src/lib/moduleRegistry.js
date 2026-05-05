@@ -264,14 +264,21 @@ export const MODULES = [
 // Super admin & reseller & employee get their own simplified workspaces (not module-switcher driven)
 export const ROLE_WORKSPACES = {
   super_admin: [
-    { to: "/app/platform",  label: "Platform",  icon: HouseLine },
-    { to: "/app/resellers", label: "Resellers", icon: Storefront },
-    { to: "/app/companies", label: "Companies", icon: Buildings },
-    { to: "/app/modules",   label: "Modules",   icon: Stack },
+    { to: "/app/platform",     label: "Platform",     icon: HouseLine },
+    { to: "/app/resellers",    label: "Resellers",    icon: Storefront },
+    { to: "/app/companies",    label: "Companies",    icon: Buildings },
+    { to: "/app/employees",    label: "Employees",    icon: UsersThree },
+    { to: "/app/bulk-import",  label: "Bulk import",  icon: UploadSimple },
+    { to: "/app/employment-classes", label: "Employment classes", icon: IdentificationCard },
+    { to: "/app/audit-log",    label: "Audit log",    icon: ShieldCheck },
+    { to: "/app/modules",      label: "Modules",      icon: Stack },
   ],
   reseller: [
-    { to: "/app/reseller",  label: "Overview",     icon: HouseLine },
-    { to: "/app/companies", label: "My Companies", icon: Buildings },
+    { to: "/app/reseller",              label: "Overview",     icon: HouseLine },
+    { to: "/app/companies",             label: "My Companies", icon: Buildings },
+    { to: "/app/reseller/commissions",  label: "Commissions",  icon: CurrencyInr },
+    { to: "/app/reseller/billing",      label: "Billing",      icon: Receipt },
+    { to: "/app/reseller/pricing",      label: "Pricing",      icon: ChartBar },
   ],
   employee: [
     { to: "/app/employee",        label: "My Workspace",    icon: HouseLine },

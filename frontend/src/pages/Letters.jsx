@@ -16,6 +16,7 @@ const CATS = ["offer","appointment","experience","relieving","noc","address_proo
 
 export default function Letters() {
   const [tab, setTab] = useState("generated");
+  const [pendingTplId, setPendingTplId] = useState(null);
   return (
     <AppShell title="Letters">
       <div className="flex items-center gap-1 mb-5 border-b border-zinc-200">
@@ -24,12 +25,14 @@ export default function Letters() {
             className={`px-4 py-2 text-sm -mb-px border-b-2 ${tab===t.k?"border-zinc-950 text-zinc-950 font-medium":"border-transparent text-zinc-500 hover:text-zinc-900"}`}>{t.l}</button>
         ))}
       </div>
-      {tab === "templates" ? <TemplatesTab/> : <GeneratedTab/>}
+      {tab === "templates"
+        ? <TemplatesTab onUseTemplate={(id) => { setPendingTplId(id); setTab("generated"); }}/>
+        : <GeneratedTab pendingTplId={pendingTplId} clearPendingTpl={() => setPendingTplId(null)}/>}
     </AppShell>
   );
 }
 
-function TemplatesTab() {
+function TemplatesTab({ onUseTemplate }) {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [f, setF] = useState(blank());
@@ -45,15 +48,20 @@ function TemplatesTab() {
       <SectionCard title="Letter templates" subtitle="Markdown with {{merge_fields}} like {{employee_name}}, {{doj}}, {{ctc_annual}}, {{today}}."
         action={<Button size="sm" onClick={()=>setOpen(true)} data-testid="tmpl-new-btn" className="gap-1.5"><Plus size={14} weight="bold"/> New template</Button>}>
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Category</TableHead><TableHead>Slug</TableHead><TableHead>Fields</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Category</TableHead><TableHead>Slug</TableHead><TableHead>Fields</TableHead><TableHead className="text-right"></TableHead></TableRow></TableHeader>
           <TableBody>
-            {rows.length===0 && <TableRow><TableCell colSpan={4} className="text-center text-zinc-500 py-6">No templates yet.</TableCell></TableRow>}
+            {rows.length===0 && <TableRow><TableCell colSpan={5} className="text-center text-zinc-500 py-6">No templates yet.</TableCell></TableRow>}
             {rows.map(r=>(
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell className="capitalize">{r.category?.replace(/_/g," ")}</TableCell>
                 <TableCell className="text-zinc-500 text-xs">{r.slug}</TableCell>
                 <TableCell className="text-xs text-zinc-500">{(r.merge_fields||[]).join(", ")}</TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" className="gap-1" data-testid={`tmpl-use-${r.id}`} onClick={() => onUseTemplate?.(r.id)}>
+                    <Plus size={12} weight="bold"/>Generate
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -84,7 +92,7 @@ function TemplatesTab() {
   );
 }
 
-function GeneratedTab() {
+function GeneratedTab({ pendingTplId, clearPendingTpl }) {
   const [rows, setRows] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -99,6 +107,15 @@ function GeneratedTab() {
     } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); }
   };
   useEffect(() => { load(); }, []);
+
+  // When user clicked "Generate" on a template row, open the modal with that template pre-selected.
+  useEffect(() => {
+    if (pendingTplId) {
+      setTplId(pendingTplId);
+      setOpen(true);
+      clearPendingTpl?.();
+    }
+  }, [pendingTplId, clearPendingTpl]);
 
   const generate = async () => {
     try { await api.post("/letters/generate", { template_id: tplId, employee_id: empId });

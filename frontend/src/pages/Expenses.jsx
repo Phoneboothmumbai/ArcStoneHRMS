@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Plus, Check, X, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
+
+const ADMIN_ROLES = new Set(["super_admin", "company_admin", "country_head", "region_head", "branch_manager", "sub_manager", "assistant_manager"]);
 
 const CATS = ["travel_flight","travel_hotel","travel_taxi","travel_mileage","travel_per_diem","meals","client_meeting","office_supplies","subscription","training","phone_internet","fuel","medical","other"];
 const STATUS_COLOR = {
@@ -41,6 +44,8 @@ export default function Expenses() {
 }
 
 function ClaimsTab() {
+  const { user } = useAuth();
+  const canApprove = ADMIN_ROLES.has(user?.role);
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -100,9 +105,9 @@ function ClaimsTab() {
                 <TableCell className="text-xs text-zinc-500">{r.items?.length || 0} items</TableCell>
                 <TableCell>
                   <div className="flex gap-1 justify-end">
-                    {r.status === "submitted" && (<>
-                      <Button size="sm" onClick={()=>decide(r.id,"approve")} className="gap-1"><Check size={12}/> Approve</Button>
-                      <Button size="sm" variant="outline" onClick={()=>decide(r.id,"reject")} className="gap-1"><X size={12}/> Reject</Button>
+                    {canApprove && r.status === "submitted" && (<>
+                      <Button size="sm" onClick={()=>decide(r.id,"approve")} className="gap-1" data-testid={`exp-approve-${r.id}`}><Check size={12}/> Approve</Button>
+                      <Button size="sm" variant="outline" onClick={()=>decide(r.id,"reject")} className="gap-1" data-testid={`exp-reject-${r.id}`}><X size={12}/> Reject</Button>
                     </>)}
                     {(r.status === "approved" || r.status === "reimbursed") && (
                       <Button size="sm" variant="outline" data-testid={`voucher-${r.id}`}
@@ -157,6 +162,8 @@ function ClaimsTab() {
 }
 
 function TravelTab() {
+  const { user } = useAuth();
+  const canApprove = ADMIN_ROLES.has(user?.role);
   const [rows, setRows] = useState([]);
   const load = async () => { try { const r = await api.get("/travel-requests"); setRows(r.data); } catch (e) { toast.error(formatApiError(e?.response?.data?.detail)); } };
   useEffect(() => { load(); }, []);
@@ -188,12 +195,12 @@ function TravelTab() {
               <TableCell className="text-right tabular-nums">{inr(r.estimated_cost)}</TableCell>
               <TableCell>
                 <div className="flex gap-1 justify-end">
-                  {r.status === "submitted" && <>
-                    <Button size="sm" onClick={()=>decide(r.id,"approve")}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={()=>decide(r.id,"reject")}>Reject</Button>
+                  {canApprove && r.status === "submitted" && <>
+                    <Button size="sm" onClick={()=>decide(r.id,"approve")} data-testid={`trv-approve-${r.id}`}>Approve</Button>
+                    <Button size="sm" variant="outline" onClick={()=>decide(r.id,"reject")} data-testid={`trv-reject-${r.id}`}>Reject</Button>
                   </>}
-                  {r.status === "approved" && <Button size="sm" onClick={()=>decide(r.id,"book")}>Mark booked</Button>}
-                  {r.status === "booked" && <Button size="sm" variant="outline" onClick={()=>decide(r.id,"complete")}>Complete</Button>}
+                  {canApprove && r.status === "approved" && <Button size="sm" onClick={()=>decide(r.id,"book")}>Mark booked</Button>}
+                  {canApprove && r.status === "booked" && <Button size="sm" variant="outline" onClick={()=>decide(r.id,"complete")}>Complete</Button>}
                 </div>
               </TableCell>
             </TableRow>

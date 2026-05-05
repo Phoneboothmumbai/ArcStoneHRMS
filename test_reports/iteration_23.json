@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 23 — Re-verification of the 8 P0 + 2 P1 fixes from iteration 22. All 11 items PASS on the external preview URL across all 4 personas (super_admin, reseller, hr_admin, employee). Previously-broken CTAs (Check-in visitor, New booking) were confirmed working — iteration 22 likely missed them because the modals render as custom divs with data-testid='vm-modal' / 'rb-modal' instead of role='dialog'. Row-click navigations, in-app 404, permission guard on /app/expenses, expanded SA & Reseller sidebars, and reseller stubs all work as described.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verification_results": {
+    "P0.1_add_employee_on_employees": "PASS — data-testid='dir-add-employee-btn' present, modal opens with dir-add-name, dir-add-email, dir-add-phone, dir-add-title, dir-add-pwd, dir-add-create-login fields",
+    "P0.2_letters_per_row_generate": "PASS — 3 data-testid='tmpl-use-<id>' buttons render on Templates tab, click opens generate modal; global 'letter-gen-btn' still present",
+    "P0.3_visitors_checkin": "PASS — data-testid='vm-checkin-btn' click opens 'Check in a visitor' modal (data-testid='vm-modal') with all fields (visitor name, company, phone, badge, host, purpose, ID proof, photo)",
+    "P0.4_resource_booking_new_booking": "PASS — data-testid='rb-new-booking-btn' click opens 'Book a resource' modal (data-testid='rb-modal') with resource select, date, from/to, purpose fields; submit button 'rb-modal-submit' present",
+    "P0.5_companies_row_click": "PASS — row click navigates to /app/companies/<uuid>; CompanyDetail renders with data-testid='company-detail'",
+    "P0.6_resellers_row_click": "PASS — row click navigates to /app/resellers/<uuid>; ResellerDetail renders with data-testid='reseller-detail'",
+    "P0.7_expenses_permission_guard": "PASS — employee persona sees 0 Approve buttons and 0 Reject buttons on /app/expenses; HR admin still sees 7 Approve + 7 Reject on submitted claims",
+    "P0.8_inapp_404": "PASS — /app/this-does-not-exist renders data-testid='app-404' with 'Back to dashboard' button; marketing hero string 'The HRMS built for the multi-country enterprise' is absent",
+    "P1_super_admin_sidebar": "PASS — all 8 expected entries present: Platform, Resellers, Companies, Employees, Bulk import, Employment classes, Audit log, Modules",
+    "P1_reseller_sidebar_stubs": "PASS — Overview, My companies, Commissions, Billing, Pricing all present; Commissions/Billing/Pricing routes render reseller-stub-commissions, reseller-stub-billing, reseller-stub-pricing respectively"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Modal visibility detection in automation: Visitors and ResourceBooking use custom modal div with data-testid='<x>-modal' rather than role='dialog'. Iteration 22 used role='dialog' selector and reported false dead-button — recommend standardising all modals to expose role='dialog' (a11y win) or documenting the data-testid naming so future test agents don't report false negatives.",
+    "The Add-employee dialog fields use data-testid='dir-add-title' rather than the attribute name='job_title' mentioned in the request — functional equivalence is fine, but suggest aligning the data-testid naming with the backend field (e.g., 'dir-add-job-title')."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100% (11/11 fix items verified)"},
+  "test_credentials": "admin@hrms.io/Admin@123, reseller@demo.io/Reseller@123, hr@acme.io/Hr@12345, employee@acme.io/Employee@123",
+  "seed_data_creation": "None — modals opened and closed without submit (per iteration 22 convention).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All iteration-22 P0/P1 regressions are fixed. Not retested here (per scope): end-to-end save-and-persist of any of the newly wired modals (create company, create employee, letter PDF generation, visitor check-in persistence, resource booking persistence). Backend endpoints employment-class/config, employment-class/stats, posh/committee were trusted per main agent's curl confirmation and not re-hit from this agent. Scope for next run should be actual submit flows for: (a) dir-add-employee → verify employee appears in list + login created, (b) vm-modal → verify visitor appears in 'Today's visitors', (c) rb-modal → verify booking appears in Upcoming, (d) tmpl-use → verify PDF preview/download, (e) Companies/Resellers detail pages stats accuracy against live data.",
+  "rca of the issue": "Iteration 22 reported Check-in visitor and New booking CTAs as 'dead'. Re-verification shows both handlers were correctly wired; the previous agent likely used a [role='dialog'] selector which does NOT match these components (they use custom div + data-testid). Modal-visibility detection in iteration 22 was a selector-mismatch false negative, not a real regression."
+}

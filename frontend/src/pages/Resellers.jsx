@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppShell, { SectionCard } from "../components/AppShell";
 import { api, formatApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -10,6 +11,7 @@ import { Plus } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 
 export default function Resellers() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ export default function Resellers() {
           </TableHeader>
           <TableBody>
             {rows.map((r) => (
-              <TableRow key={r.id} data-testid={`rrow-${r.id}`}>
+              <TableRow key={r.id} data-testid={`rrow-${r.id}`} className="cursor-pointer hover:bg-zinc-50" onClick={() => navigate(`/app/resellers/${r.id}`)}>
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell className="text-zinc-600">{r.company_name}</TableCell>
                 <TableCell className="text-zinc-600">{r.contact_email}</TableCell>

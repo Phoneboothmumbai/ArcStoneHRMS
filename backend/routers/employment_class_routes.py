@@ -47,7 +47,8 @@ async def get_config(user=Depends(require_roles("super_admin", "company_admin"))
     db = get_db()
     cid = user.get("company_id")
     if not cid:
-        raise HTTPException(400, "Company scope required")
+        # Super admin without tenant scope — return empty payload + flag instead of 400 noise.
+        return {"company_id": None, "matrix": {}, "is_custom": False, "scope_required": True}
     matrix = await get_effective_matrix(db, cid)
     doc = await db.employment_class_permissions.find_one({"company_id": cid}, {"_id": 0})
     return {
@@ -103,7 +104,8 @@ async def class_stats(user=Depends(require_roles("super_admin", "company_admin",
     db = get_db()
     cid = user.get("company_id")
     if not cid:
-        raise HTTPException(400, "Company scope required")
+        # Super admin without tenant scope — return empty stats payload (avoid 400 noise).
+        return {"counts": {c: 0 for c in CLASS_KEYS}, "total": 0, "scope_required": True}
     pipeline = [
         {"$match": {"company_id": cid, "status": {"$ne": "terminated"}}},
         {"$group": {"_id": "$employment_class", "count": {"$sum": 1}}},

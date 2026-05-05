@@ -69,6 +69,10 @@ import CompOff from "./pages/CompOff";
 import InvestmentDeclarations from "./pages/InvestmentDeclarations";
 import BulkEmployeeImport from "./pages/BulkEmployeeImport";
 import AuditLog from "./pages/AuditLog";
+import CompanyDetail from "./pages/CompanyDetail";
+import ResellerDetail from "./pages/ResellerDetail";
+import NotFound from "./pages/NotFound";
+import ResellerStub from "./pages/ResellerStub";
 import { ModulesProvider } from "./context/ModulesContext";
 import { EmploymentClassProvider } from "./context/EmploymentClassContext";
 
@@ -96,7 +100,12 @@ function App() {
 
           <Route path="/app/platform" element={<ProtectedRoute roles={["super_admin"]}><PlatformDashboard /></ProtectedRoute>} />
           <Route path="/app/resellers" element={<ProtectedRoute roles={["super_admin"]}><Resellers /></ProtectedRoute>} />
+          <Route path="/app/resellers/:id" element={<ProtectedRoute roles={["super_admin", "reseller"]}><ResellerDetail /></ProtectedRoute>} />
           <Route path="/app/companies" element={<ProtectedRoute roles={["super_admin", "reseller"]}><Companies /></ProtectedRoute>} />
+          <Route path="/app/companies/:id" element={<ProtectedRoute roles={["super_admin", "reseller", "company_admin"]}><CompanyDetail /></ProtectedRoute>} />
+          <Route path="/app/reseller/commissions" element={<ProtectedRoute roles={["reseller", "super_admin"]}><ResellerStub kind="commissions" /></ProtectedRoute>} />
+          <Route path="/app/reseller/billing" element={<ProtectedRoute roles={["reseller", "super_admin"]}><ResellerStub kind="billing" /></ProtectedRoute>} />
+          <Route path="/app/reseller/pricing" element={<ProtectedRoute roles={["reseller", "super_admin"]}><ResellerStub kind="pricing" /></ProtectedRoute>} />
 
           <Route path="/app/reseller" element={<ProtectedRoute roles={["reseller"]}><ResellerDashboard /></ProtectedRoute>} />
 
@@ -183,6 +192,7 @@ function App() {
           <Route path="/app/bulk-import" element={<ProtectedRoute roles={["super_admin","company_admin","country_head"]}><BulkEmployeeImport /></ProtectedRoute>} />
           <Route path="/app/audit-log" element={<ProtectedRoute roles={["super_admin","company_admin","reseller"]}><AuditLog /></ProtectedRoute>} />
 
+          <Route path="/app/*" element={<ProtectedRoute><NotFound /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
