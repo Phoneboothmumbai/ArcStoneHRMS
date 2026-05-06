@@ -13,6 +13,15 @@
 
 ## What's been implemented
 
+### May 6, 2026 — Marketing homepage rebuilt to spec ✅
+**Public landing page (`/`) rewritten to the Arcstone brand spec.** Editorial dark-navy + Fraunces serif + amber accents + Geist body/mono. Replaces the old zinc-on-white landing without touching any `/app/*` route.
+
+- 11 sections built top-to-bottom: sticky nav, hero (4 stats), 3 doors, partners (6 benefit cards + apply CTA), branches (5 sticky-scrolled feature cards), 9 pillars grid, vs-category comparison table, 4 pricing tiers (Starter ₹49 / Growth ₹99 / Pro ₹199 / Partner Custom), 6-item FAQ accordion, final CTA, footer.
+- Fonts loaded from Google: Fraunces (display, ss01), Geist (body), Geist Mono (eyebrows / metadata).
+- All marketing styles scoped under `.arcstone-marketing` selector in `index.css` — does not leak into the HRMS app shell.
+- SEO meta updated in `public/index.html`: title, description, OG tags, theme-color, canonical positioning for arcstone.co.in.
+- 30 distinct `data-testid` hooks for future regression testing of the marketing flows.
+
 ### May 5, 2026 — Iteration 23: Final pre-launch UX cleanup ✅ (ALL P0 + P1 PASS)
 **Go-live blockers cleared.** Testing agent verified 11/11 fix items (iteration_23.json `success_rate.frontend = 100%`).
 
