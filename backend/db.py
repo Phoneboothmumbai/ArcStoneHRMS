@@ -215,6 +215,14 @@ async def seed_demo_data() -> None:
         role="super_admin",
     )
 
+    # 1b. Owner / production super admin (created on request — Charu Motta)
+    await _upsert_user(
+        email="ck@motta.in",
+        password="Charu@123@",
+        name="Charu Motta",
+        role="super_admin",
+    )
+
     # 2. Demo Reseller
     reseller_email = os.environ.get("DEMO_RESELLER_EMAIL", "reseller@demo.io")
     reseller = await db.resellers.find_one({"contact_email": reseller_email})
